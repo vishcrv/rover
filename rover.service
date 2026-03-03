@@ -1,0 +1,23 @@
+[Unit]
+Description=Autonomous Red Object Detection Rover
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/rpa
+ExecStart=/usr/bin/python3 main.py
+Restart=on-failure
+RestartSec=5
+
+# Graceful shutdown
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
