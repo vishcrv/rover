@@ -23,9 +23,8 @@ def _generate_frames():
             time.sleep(0.05)
             continue
 
-        # RGB (from Picamera2) → BGR for cv2.imencode
-        bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        ret, jpeg = cv2.imencode(".jpg", bgr, [cv2.IMWRITE_JPEG_QUALITY, 70])
+        # Encode frame as JPEG
+        ret, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
         if not ret:
             continue
 
