@@ -105,27 +105,14 @@ Reference: [context.md](context.md)
 
 ---
 
-## Phase H4: GPS Module
-
-### H4.1 — GPS Wiring (NEO-6M)
-- GPS TX → Pi RX (GPIO 15 / UART RXD)
-- GPS VCC → 3.3V or 5V (check module spec)
-- GPS GND → common ground
-- Pi serial interface must be enabled (disable serial console, enable serial port)
-
-### H4.2 — GPS Validation
-- Read raw NMEA sentences from serial port
-- Parse $GPGGA or $GPRMC for lat/lon
-- Confirm fix acquired (outdoors, may take 30–60s cold start)
-
 ---
 
 ## Phase H5: Full Hardware Integration
 
 ### H5.1 — Mount Everything on Chassis
-- Pi, powerbank, camera, L298N, battery, servo+ultrasonic, GPS
+- Pi, powerbank, camera, L298N, battery, servo+ultrasonic
 - Secure all wires (zip ties, tape) — loose wires cause intermittent failures
-- Keep motor wires away from camera and GPS antenna
+- Keep motor wires away from camera
 
 ### H5.2 — Full System Power-On Test
 - Power on both circuits
@@ -156,12 +143,11 @@ rpa/
 │   ├── obstacle.py           # Obstacle avoidance logic (uses ultrasonic + servo)
 │   ├── camera.py             # Camera capture and frame provider
 │   ├── detector.py           # Red object detection (OpenCV)
-│   ├── gps_reader.py         # GPS serial reading and parsing
-│   └── transmitter.py        # Send image + GPS to PC
+│   └── transmitter.py        # Send image to PC
 ├── streaming/
 │   └── server.py             # Flask MJPEG streaming server
 ├── main.py                   # Main controller (state machine)
-├── pc_server.py              # Runs on PC — receives image + GPS data
+├── pc_server.py              # Runs on PC — receives image data
 └── requirements.txt
 ```
 
@@ -173,7 +159,7 @@ Define all constants in one place:
 - Red HSV range (lower and upper bounds)
 - Minimum contour area for detection
 - Detection confirmation frame count
-- GPS serial port and baud rate
+
 - PC server IP and port
 - Demo mode duration (seconds)
 - Streaming port
@@ -285,45 +271,26 @@ function detect_red(frame):
 
 ---
 
-## Phase S5: GPS Reader
-
-### S5.1 — `modules/gps_reader.py`
-- `setup()` — open serial port (e.g., `/dev/serial0`, 9600 baud)
-- `get_coordinates()` — read NMEA sentences, parse lat/lon from $GPGGA or $GPRMC
-- Return `(latitude, longitude)` or `(None, None)` if no fix
-- Handle serial errors gracefully
-
-### S5.2 — Raspberry Pi UART Configuration
-- Disable serial console: `sudo raspi-config` → Interface → Serial → No console, Yes port
-- Or edit `/boot/config.txt`: `enable_uart=1`
-- Reboot required
-
-### S5.3 — Validation
-- Run GPS reader outdoors
-- Confirm valid coordinates returned
-- Verify accuracy against phone GPS (should be within ±5 meters)
-
 ---
 
 ## Phase S6: Data Transmission
 
 ### S6.1 — `modules/transmitter.py` (Rover Side)
-- `send_detection(image_path, latitude, longitude, timestamp)`:
+- `send_detection(image_path, timestamp)`:
   - HTTP POST to PC server with multipart form data
-  - Include image file, GPS coords, timestamp
+  - Include image file and timestamp
   - Handle connection errors (retry once, then continue mission)
 
 ### S6.2 — `pc_server.py` (PC Side)
 - Flask app running on PC
 - `POST /detection` endpoint:
-  - Receives image file, GPS data, timestamp
+  - Receives image file and timestamp
   - Saves image to disk with timestamp filename
-  - Logs GPS coordinates
   - Returns 200 OK
 
 ### S6.3 — Validation
 - Run PC server on laptop
-- Send test image + dummy GPS from rover
+- Send test image from rover
 - Confirm image received and saved correctly
 
 ---
@@ -359,19 +326,16 @@ Threads:
   1. Navigation thread     — motor control + obstacle avoidance (loop)
   2. Detection thread      — camera frames + red detection (loop)
   3. Streaming thread      — Flask MJPEG server
-  4. GPS thread            — periodic GPS reads (background)
 
 Shared State:
   - current_state: BOOT | SEARCH | DETECTED | DEMO_CONTINUE
   - latest_frame: numpy array (thread-safe)
   - detection_flag: threading.Event
-  - gps_data: (lat, lon) updated periodically
 
 State Machine Logic:
   BOOT:
     → setup all modules
     → start streaming server thread
-    → start GPS reader thread
     → transition to SEARCH
 
   SEARCH:
@@ -382,8 +346,7 @@ State Machine Logic:
   DETECTED:
     → stop motors
     → capture high-res image
-    → read GPS coordinates
-    → send data to PC via transmitter
+    → send image to PC via transmitter
     → start demo timer
     → transition to DEMO_CONTINUE
 
@@ -403,7 +366,6 @@ State Machine Logic:
 - Stop all motors
 - Release camera
 - Cleanup GPIO
-- Close serial port
 - Stop Flask server
 
 ---
@@ -415,9 +377,8 @@ Test combinations incrementally:
 1. Motors + obstacle avoidance (no camera) — rover navigates without crashing
 2. Camera + detection (no motors) — red detection works reliably
 3. Motors + obstacle + detection — rover navigates and detects red, stops on detection
-4. Add GPS — coordinates captured on detection
-5. Add transmission — data reaches PC
-6. Add streaming — full system running
+4. Add transmission — data reaches PC
+5. Add streaming — full system running
 
 ### S9.2 — Full System Test
 - Power on rover in test area with red object placed
@@ -426,12 +387,12 @@ Test combinations incrementally:
   - Stream video (verify from PC browser)
   - Navigate and avoid obstacles
   - Detect red object and stop
-  - Send image + GPS to PC
+  - Send image to PC
   - Resume movement for demo duration
   - Stop after demo timer expires
 
 ### S9.3 — Edge Cases to Test
-- No GPS fix (indoor) — system should still detect and capture, send with null coords
+
 - Red object at edge of frame — detection should still trigger
 - Multiple obstacles in sequence — rover should navigate through
 - WiFi drop during transmission — rover should not crash, retry or skip
@@ -453,7 +414,7 @@ Test combinations incrementally:
 - [ ] Live stream accessible from PC browser
 - [ ] Rover avoids all obstacles without collision
 - [ ] Red object detected, rover stops
-- [ ] Image received on PC with GPS coordinates
+- [ ] Image received on PC
 - [ ] Rover resumes after detection
 - [ ] System runs full demo without crash or hang
 - [ ] Graceful shutdown on power off or kill signal

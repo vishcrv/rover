@@ -14,8 +14,7 @@ Design and implement a fully autonomous mobile rover that:
 - Searches for a red-colored object using computer vision
 - Stops when a valid red object is detected
 - Captures an image
-- Reads GPS coordinates
-- Sends image + GPS data to PC over WiFi
+- Sends image data to PC over WiFi
 - Continues mission for a defined time after detection (demo mode)
 - Streams live camera feed to PC while powered ON
 - Avoids obstacles using ultrasonic sensor mounted on a servo
@@ -38,7 +37,6 @@ Design and implement a fully autonomous mobile rover that:
 ## 2.3 Sensors
 - Ultrasonic sensor (front-mounted on servo for scanning)
 - Servo motor (for directional obstacle scanning)
-- GPS module (e.g., NEO-6M)
 
 ## 2.4 Communication
 - WiFi (Raspberry Pi onboard)
@@ -130,9 +128,8 @@ After red object detection:
 
 1. Stop.
 2. Capture image.
-3. Read GPS coordinates.
-4. Send image + GPS data to PC.
-5. Resume movement for predefined duration (e.g., 30–60 seconds).
+3. Send image data to PC.
+4. Resume movement for predefined duration (e.g., 30–60 seconds).
 6. Continue obstacle avoidance.
 7. End mission or loop based on configuration.
 
@@ -149,7 +146,6 @@ When red object detected:
 
 Send to PC:
 - Captured image file
-- GPS latitude and longitude
 - Timestamp
 
 Transmission method:
@@ -185,7 +181,6 @@ STATE 1: BOOT
 → Initialize camera  
 → Initialize motors  
 → Initialize ultrasonic  
-→ Initialize GPS  
 → Start streaming server  
 
 STATE 2: SEARCH  
@@ -199,7 +194,6 @@ If red detected → STATE 3
 STATE 3: DETECTED  
 → Stop  
 → Capture image  
-→ Read GPS  
 → Send data  
 → Resume movement (demo timer active)  
 
@@ -215,7 +209,7 @@ STATE 4: DEMO CONTINUE
 - OpenCV
 - Picamera2 (libcamera-based)
 - RPi.GPIO or gpiozero
-- Serial communication (pyserial) for GPS
+- Serial communication (pyserial) — reserved for future modules
 - Flask (for streaming and data transfer)
 - Threading or multiprocessing
 
@@ -226,7 +220,6 @@ STATE 4: DEMO CONTINUE
 - Real-time detection at minimum 15–20 FPS
 - Obstacle reaction time < 200 ms
 - No physical collision
-- GPS accuracy within typical civilian limits (±2–5 meters outdoor)
 
 ---
 
@@ -239,7 +232,6 @@ Recommended for demo:
 - Moderate lighting
 - Stable WiFi coverage
 
-GPS works best outdoors.
 
 ---
 
@@ -262,7 +254,7 @@ This system includes:
 - Rule-based obstacle avoidance
 - Color-based object detection
 - Image capture
-- GPS coordinate transmission
+- Image transmission to PC
 - Live video streaming
 
 This system does NOT include:

@@ -26,14 +26,16 @@ def _single_reading():
     GPIO.output(ULTRASONIC_TRIG, GPIO.LOW)
 
     # Wait for echo to go HIGH (pulse sent)
-    deadline = time.time() + ULTRASONIC_TIMEOUT
+    pulse_start = time.time()
+    deadline = pulse_start + ULTRASONIC_TIMEOUT
     while GPIO.input(ULTRASONIC_ECHO) == GPIO.LOW:
         pulse_start = time.time()
         if pulse_start > deadline:
             return None
 
     # Wait for echo to go LOW (pulse returned)
-    deadline = time.time() + ULTRASONIC_TIMEOUT
+    pulse_end = time.time()
+    deadline = pulse_end + ULTRASONIC_TIMEOUT
     while GPIO.input(ULTRASONIC_ECHO) == GPIO.HIGH:
         pulse_end = time.time()
         if pulse_end > deadline:

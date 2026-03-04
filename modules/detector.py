@@ -22,9 +22,8 @@ def detect_red(frame):
             detected — True if a red object large enough was found.
             contour  — the largest valid contour, or None.
     """
-    # Picamera2 gives RGB, OpenCV needs BGR for cvtColor
-    bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    # Picamera2 gives RGB — convert directly to HSV
+    hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
 
     # Red wraps around hue 0/180 — combine two masks
     mask1 = cv2.inRange(hsv, np.array(RED_LOWER_1), np.array(RED_UPPER_1))

@@ -1,4 +1,4 @@
-# modules/transmitter.py — Send image + GPS data to PC
+# modules/transmitter.py — Send detection image to PC
 
 import os
 import logging
@@ -17,13 +17,11 @@ def _build_url():
     return f"http://{PC_SERVER_IP}:{PC_SERVER_PORT}{PC_DETECTION_ENDPOINT}"
 
 
-def send_detection(image_path, latitude, longitude, timestamp):
+def send_detection(image_path, timestamp):
     """Send detection data to the PC server via HTTP POST.
 
     Args:
         image_path: Full path to the captured image file.
-        latitude:   GPS latitude (float or None).
-        longitude:  GPS longitude (float or None).
         timestamp:  ISO format timestamp string.
 
     Returns:
@@ -32,8 +30,6 @@ def send_detection(image_path, latitude, longitude, timestamp):
     url = _build_url()
 
     data = {
-        "latitude": str(latitude) if latitude is not None else "",
-        "longitude": str(longitude) if longitude is not None else "",
         "timestamp": timestamp,
     }
 

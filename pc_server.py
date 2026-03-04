@@ -1,4 +1,4 @@
-# pc_server.py — Runs on PC, receives image + GPS data from rover
+# pc_server.py — Runs on PC, receives detection image from rover
 # Usage: python pc_server.py
 
 import os
@@ -14,9 +14,7 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 @app.route("/detection", methods=["POST"])
 def receive_detection():
     """Receive detection data from the rover."""
-    # Extract GPS and timestamp
-    latitude = request.form.get("latitude", "")
-    longitude = request.form.get("longitude", "")
+    # Extract timestamp
     timestamp = request.form.get("timestamp", "")
 
     # Save image
@@ -34,7 +32,6 @@ def receive_detection():
     print(f"\n{'='*50}")
     print(f"  DETECTION RECEIVED")
     print(f"  Time:      {timestamp}")
-    print(f"  GPS:       {latitude}, {longitude}")
     print(f"  Image:     {filepath}")
     print(f"  Size:      {os.path.getsize(filepath)} bytes")
     print(f"{'='*50}\n")

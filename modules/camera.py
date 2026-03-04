@@ -2,11 +2,9 @@
 
 import os
 import threading
-import numpy as np
 from picamera2 import Picamera2
 from config.settings import (
-    CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS,
-    CAPTURE_WIDTH, CAPTURE_HEIGHT, CAPTURE_DIR,
+    CAMERA_WIDTH, CAMERA_HEIGHT, CAPTURE_DIR,
 )
 
 _camera = None
@@ -58,10 +56,7 @@ def get_frame():
 
 
 def capture_image(filename):
-    """Capture a high-resolution still image and save to CAPTURE_DIR.
-
-    Temporarily switches to still configuration for max quality,
-    then switches back to preview mode.
+    """Capture a still image and save to CAPTURE_DIR.
 
     Returns the full path to the saved image.
     """

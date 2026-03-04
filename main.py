@@ -2,7 +2,6 @@
 # Auto-start: sudo systemctl enable rover.service
 
 import signal
-import sys
 import time
 import logging
 import threading
@@ -10,7 +9,7 @@ from datetime import datetime
 from enum import Enum, auto
 
 from config.settings import DEFAULT_SPEED, DEMO_DURATION, STREAM_PORT
-from modules import motor, ultrasonic, servo, camera, detector, gps_reader, transmitter
+from modules import motor, ultrasonic, servo, camera, detector, transmitter
 from modules.obstacle import check_and_avoid
 from streaming import server as stream_server
 
@@ -120,9 +119,6 @@ def _boot():
     time.sleep(1)  # let camera warm up
     log.info("  Camera OK")
 
-    gps_reader.setup()
-    log.info("  GPS reader started")
-
     stream_server.start(blocking=False)
     log.info("  Streaming server started on port %d", STREAM_PORT)
 
@@ -131,7 +127,7 @@ def _boot():
 # Detection handling
 # ---------------------------------------------------------------------------
 def _handle_detection():
-    """Stop, capture, read GPS, send data to PC."""
+    """Stop, capture image, and send data to PC."""
     motor.stop()
     log.info("Motors stopped")
 
@@ -141,16 +137,9 @@ def _handle_detection():
     image_path = camera.capture_image(filename)
     log.info("Image captured: %s", image_path)
 
-    # Read GPS
-    lat, lon = gps_reader.get_coordinates()
-    if lat is not None:
-        log.info("GPS: %.6f, %.6f", lat, lon)
-    else:
-        log.warning("No GPS fix — sending without coordinates")
-
     # Send to PC
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    success = transmitter.send_detection(image_path, lat, lon, timestamp)
+    success = transmitter.send_detection(image_path, timestamp)
     if success:
         log.info("Detection data sent to PC")
     else:
@@ -174,9 +163,6 @@ def _shutdown():
 
     camera.cleanup()
     log.info("  Camera released")
-
-    gps_reader.cleanup()
-    log.info("  GPS closed")
 
     servo.cleanup()
     ultrasonic.cleanup()
