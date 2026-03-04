@@ -90,4 +90,4 @@ STREAM_PORT = 8080
 # DEMO MODE
 # =============================================================================
 
-DEMO_DURATION = 60        # seconds to continue after red detection
+DEMO_DURATION = 10        # seconds to continue after red detection
