@@ -68,7 +68,7 @@ CAMERA_HEIGHT = 480
 CAMERA_FPS = 20
 CAPTURE_WIDTH = 1920      # high-res capture on detection
 CAPTURE_HEIGHT = 1080
-CAPTURE_DIR = "/home/pi/captures"
+CAPTURE_DIR = "/home/raspberry/captures"
 
 # =============================================================================
 # DATA TRANSMISSION
