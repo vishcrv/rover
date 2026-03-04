@@ -13,11 +13,11 @@ MOTOR_LEFT_PWM = 12      # ENA (hardware PWM)
 MOTOR_RIGHT_PWM = 13     # ENB (hardware PWM)
 
 # Servo (obstacle scanning)
-SERVO_PIN = 18            # hardware PWM capable
+SERVO_PIN = 24            # PWM capable
 
 # Ultrasonic sensor (HC-SR04)
-ULTRASONIC_TRIG = 24
-ULTRASONIC_ECHO = 25      # wired through voltage divider (5V → 3.3V)
+ULTRASONIC_TRIG = 25
+ULTRASONIC_ECHO = 5       # wired through voltage divider (5V → 3.3V)
 
 # =============================================================================
 # MOTOR SETTINGS
