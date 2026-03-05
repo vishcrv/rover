@@ -41,9 +41,9 @@ ULTRASONIC_SAMPLES = 3    # number of readings to average
 # SERVO
 # =============================================================================
 
-SERVO_LEFT_ANGLE = 30     # degrees
+SERVO_LEFT_ANGLE = 15     # degrees
 SERVO_CENTER_ANGLE = 90   # degrees
-SERVO_RIGHT_ANGLE = 150   # degrees
+SERVO_RIGHT_ANGLE = 165   # degrees
 SERVO_SETTLE_TIME = 0.3   # seconds to wait after moving servo
 
 # =============================================================================
@@ -75,7 +75,7 @@ CAPTURE_DIR = "/home/raspberry/captures"
 # =============================================================================
 
 PC_SERVER_IP = "172.16.61.102"    # PC's IP on the same network as the rover
-PC_SERVER_PORT = 5000
+PC_SERVER_PORT = 5001
 PC_DETECTION_ENDPOINT = "/detection"
 TRANSMIT_TIMEOUT = 5              # seconds — HTTP request timeout
 
