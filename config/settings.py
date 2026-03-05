@@ -74,7 +74,7 @@ CAPTURE_DIR = "/home/raspberry/captures"
 # DATA TRANSMISSION
 # =============================================================================
 
-PC_SERVER_IP = "192.168.1.100"    # change to your PC's IP
+PC_SERVER_IP = "172.16.61.102"    # PC's IP on the same network as the rover
 PC_SERVER_PORT = 5000
 PC_DETECTION_ENDPOINT = "/detection"
 TRANSMIT_TIMEOUT = 5              # seconds — HTTP request timeout
