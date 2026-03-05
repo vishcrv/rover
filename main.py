@@ -200,6 +200,7 @@ def main():
 
         # ---- SEARCH ----
         _set_state(State.SEARCH)
+        servo.start_sweep()
 
         while not _shutdown_event.is_set():
             state = _get_state()
@@ -210,6 +211,7 @@ def main():
                     _set_state(State.DETECTED)
 
             elif state == State.DETECTED:
+                servo.stop_sweep()
                 _handle_detection()
                 _set_state(State.DEMO_CONTINUE)
 
@@ -226,6 +228,7 @@ def main():
                     motor.stop()
                     log.info("Demo complete — returning to SEARCH")
                     _set_state(State.SEARCH)
+                    servo.start_sweep()
 
             elif state == State.SHUTDOWN:
                 break

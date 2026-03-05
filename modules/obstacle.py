@@ -6,12 +6,13 @@ from config.settings import (
     TURN_SPEED, TURN_DURATION, DEFAULT_SPEED,
 )
 from modules import ultrasonic, servo, motor
+from config.settings import SERVO_CENTER_ANGLE
 
 _BACKUP_TIME = 0.3  # seconds to reverse after emergency stop
 
 
 def check_and_avoid():
-    """Check for obstacles and maneuver around them.
+    """Check for obstacles and maneuver around them based on active sweep angle.
 
     Returns:
         True  — obstacle was detected and avoidance was performed.
@@ -24,6 +25,7 @@ def check_and_avoid():
 
     # -- Obstacle within range --
     motor.stop()
+    servo.pause_sweep()
 
     # Emergency: too close — back up first
     if distance <= EMERGENCY_STOP_CM:
@@ -31,22 +33,19 @@ def check_and_avoid():
         time.sleep(_BACKUP_TIME)
         motor.stop()
 
-    # Scan left and right to find best direction
-    servo.look_left()
-    left_distance = ultrasonic.get_distance()
-
-    servo.look_right()
-    right_distance = ultrasonic.get_distance()
-
-    servo.look_center()  # reset for forward sensing
-
-    # Turn toward the side with more clearance
-    if left_distance >= right_distance:
-        motor.turn_left(TURN_SPEED)
-    else:
+    # Determine turn direction based on current sweep angle
+    current_angle = servo.get_current_angle()
+    
+    # If the servo is looking left (angle < center), obstacle is on the left -> turn right
+    # If the servo is looking right (angle > center), obstacle is on the right -> turn left
+    if current_angle < SERVO_CENTER_ANGLE:
         motor.turn_right(TURN_SPEED)
+    else:
+        motor.turn_left(TURN_SPEED)
 
     time.sleep(TURN_DURATION)
     motor.stop()
-
+    
+    servo.resume_sweep()
     return True
+
