@@ -4,7 +4,7 @@
 
 import os
 from datetime import datetime
-from modules import transmitter
+from utils import transmitter
 
 
 def test_send():
@@ -39,7 +39,7 @@ def test_send():
         print("  SUCCESS — PC server received the data.")
     else:
         print("  FAILED — check that pc_server.py is running on the PC")
-        print(f"           and PC_SERVER_IP in config/settings.py is correct.")
+        print(f"           and PC_SERVER_IP in utils/config.py is correct.")
 
 
 def run():

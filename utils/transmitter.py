@@ -1,9 +1,9 @@
-# modules/transmitter.py — Send detection image to PC
+# utils/transmitter.py — Send detection image to PC
 
 import os
 import logging
 import requests
-from config.settings import (
+from utils.config import (
     PC_SERVER_IP, PC_SERVER_PORT,
     PC_DETECTION_ENDPOINT, TRANSMIT_TIMEOUT,
 )

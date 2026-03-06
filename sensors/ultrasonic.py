@@ -1,21 +1,32 @@
-# modules/ultrasonic.py — Distance measurement via HC-SR04
+# sensors/ultrasonic.py — Distance measurement via HC-SR04
 
 import time
+import threading
 import RPi.GPIO as GPIO
-from config.settings import (
+from utils.config import (
     ULTRASONIC_TRIG, ULTRASONIC_ECHO,
     ULTRASONIC_TIMEOUT, ULTRASONIC_SAMPLES,
 )
 
+_running = False
+_thread = None
+_latest_distance = 999
+_lock = threading.Lock()
+
 
 def setup():
-    """Initialize ultrasonic sensor GPIO pins."""
+    """Initialize ultrasonic sensor GPIO pins and start sampling thread."""
+    global _running, _thread
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
     GPIO.setup(ULTRASONIC_TRIG, GPIO.OUT)
     GPIO.setup(ULTRASONIC_ECHO, GPIO.IN)
     GPIO.output(ULTRASONIC_TRIG, GPIO.LOW)
     time.sleep(0.05)  # let sensor settle
+    
+    _running = True
+    _thread = threading.Thread(target=_sampling_loop, daemon=True)
+    _thread.start()
 
 
 def _single_reading():
@@ -47,24 +58,36 @@ def _single_reading():
     return distance
 
 
+def _sampling_loop():
+    """Continuously sample distance to provide latest non-blocking reading."""
+    global _latest_distance
+    while _running:
+        readings = []
+        for _ in range(ULTRASONIC_SAMPLES):
+            if not _running:
+                break
+            d = _single_reading()
+            if d is not None and 2 < d < 400:  # HC-SR04 valid range
+                readings.append(d)
+            time.sleep(0.01)  # small gap between samples
+
+        with _lock:
+            if not readings:
+                _latest_distance = 999  # no valid reading — assume clear path
+            else:
+                _latest_distance = sum(readings) / len(readings)
+
+
 def get_distance():
-    """Return averaged distance in cm. Filters out failed readings.
-
-    Returns a large value (999) if all readings fail (no obstacle / sensor error).
-    """
-    readings = []
-    for _ in range(ULTRASONIC_SAMPLES):
-        d = _single_reading()
-        if d is not None and 2 < d < 400:  # HC-SR04 valid range
-            readings.append(d)
-        time.sleep(0.01)  # small gap between samples
-
-    if not readings:
-        return 999  # no valid reading — assume clear path
-
-    return sum(readings) / len(readings)
+    """Return the latest average distance asynchronously. Very fast, does not block."""
+    with _lock:
+        return _latest_distance
 
 
 def cleanup():
     """Release ultrasonic GPIO pins."""
+    global _running
+    _running = False
+    if _thread is not None:
+        _thread.join(timeout=1.0)
     GPIO.cleanup([ULTRASONIC_TRIG, ULTRASONIC_ECHO])

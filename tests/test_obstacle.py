@@ -2,7 +2,8 @@
 # Run on Raspberry Pi: python -m tests.test_obstacle
 
 import time
-from modules import ultrasonic, servo, motor
+from sensors import ultrasonic
+from actuators import servo_controller as servo, motor_controller as motor
 
 
 def test_ultrasonic():
@@ -62,24 +63,25 @@ def test_scan():
 
 def test_obstacle_avoidance():
     """Run obstacle avoidance in a loop — rover moves forward and avoids obstacles."""
-    from modules.obstacle import check_and_avoid
+    from navigation.navigation_controller import NavigationController
+    from navigation.state_machine import StateMachine
 
     print("=== Obstacle Avoidance Live Test ===")
-    print("  Rover will move forward and avoid obstacles.")
+    print("  Rover will start Navigation Controller.")
     print("  Press Ctrl+C to stop.\n")
 
+    sm = StateMachine()
+    nav = NavigationController(sm)
+    
     motor.setup()
     servo.setup()
     ultrasonic.setup()
 
     try:
+        nav.start()
+        sm.set_state(sm.State.MOVING_FORWARD)
         while True:
-            avoided = check_and_avoid()
-            if avoided:
-                print("  [!] Obstacle avoided")
-            else:
-                motor.forward()
-            time.sleep(0.1)
+            time.sleep(1.0)
     except KeyboardInterrupt:
         print("\n  Stopped.")
     finally:

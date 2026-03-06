@@ -1,11 +1,12 @@
-# modules/servo.py — Servo sweep control for obstacle scanning
+# actuators/servo_controller.py — Servo sweep control for obstacle scanning
 
 import time
 import threading
 import RPi.GPIO as GPIO
-from config.settings import (
+from utils.config import (
     SERVO_PIN,
     SERVO_LEFT_ANGLE, SERVO_CENTER_ANGLE, SERVO_RIGHT_ANGLE,
+    SERVO_SCAN_MIN, SERVO_SCAN_MAX,
     SERVO_SETTLE_TIME,
 )
 
@@ -16,12 +17,13 @@ _MIN_DUTY = 2.5
 _MAX_DUTY = 12.5
 
 # Sweeping state
-_current_angle = SERVO_CENTER_ANGLE
+_current_angle = 0 # 0 is straight forward
 _sweep_thread = None
 _stop_sweep_event = threading.Event()
 _pause_sweep_event = threading.Event()
 _SWEEP_STEP = 5       # degrees per tick
 _SWEEP_DELAY = 0.05   # seconds per tick (adjust for speed)
+
 
 def setup():
     """Initialize servo GPIO and center the servo."""
@@ -31,20 +33,26 @@ def setup():
     GPIO.setup(SERVO_PIN, GPIO.OUT)
     _pwm = GPIO.PWM(SERVO_PIN, 50)  # 50 Hz for servo
     _pwm.start(0)
-    _current_angle = SERVO_CENTER_ANGLE
     look_center()
 
 
-def _angle_to_duty(angle):
-    """Convert angle (0–180) to duty cycle."""
-    return _MIN_DUTY + (angle / 180) * (_MAX_DUTY - _MIN_DUTY)
+def _angle_to_duty(angle_rel_forward):
+    """
+    Convert relative angle to absolute duty cycle.
+    0 degrees is forward (90 abs).
+    -90 degrees is left (0 abs).
+    +90 degrees is right (180 abs).
+    """
+    abs_angle = angle_rel_forward + 90
+    abs_angle = max(0, min(180, abs_angle)) # clamp to 0-180
+    return _MIN_DUTY + (abs_angle / 180) * (_MAX_DUTY - _MIN_DUTY)
 
 
-def look_at(angle, wait_settle=True):
-    """Rotate servo to a specific angle (0–180)."""
+def look_at(angle_rel_forward, wait_settle=True):
+    """Rotate servo to a specific relative angle (-90 to +90)."""
     global _current_angle
-    _current_angle = angle
-    duty = _angle_to_duty(angle)
+    _current_angle = angle_rel_forward
+    duty = _angle_to_duty(angle_rel_forward)
     _pwm.ChangeDutyCycle(duty)
     if wait_settle:
         time.sleep(SERVO_SETTLE_TIME)
@@ -53,26 +61,26 @@ def look_at(angle, wait_settle=True):
 
 def look_left():
     """Point ultrasonic sensor left."""
-    look_at(SERVO_LEFT_ANGLE)
+    look_at(SERVO_SCAN_MIN)
 
 
 def look_center():
     """Point ultrasonic sensor forward."""
-    look_at(SERVO_CENTER_ANGLE)
+    look_at(0)
 
 
 def look_right():
     """Point ultrasonic sensor right."""
-    look_at(SERVO_RIGHT_ANGLE)
+    look_at(SERVO_SCAN_MAX)
 
 
 def get_current_angle():
-    """Return the current angle of the servo."""
+    """Return the current relative angle of the servo."""
     return _current_angle
 
 
 def _sweep_loop():
-    """Continuously sweep the servo back and forth."""
+    """Continuously sweep the servo back and forth between SCAN_MIN and SCAN_MAX."""
     global _current_angle
     
     direction = 1  # 1 for right (increasing angle), -1 for left (decreasing)
@@ -86,11 +94,11 @@ def _sweep_loop():
             
         next_angle = _current_angle + (direction * _SWEEP_STEP)
         
-        if next_angle >= SERVO_RIGHT_ANGLE:
-            next_angle = SERVO_RIGHT_ANGLE
+        if next_angle >= SERVO_SCAN_MAX:
+            next_angle = SERVO_SCAN_MAX
             direction = -1
-        elif next_angle <= SERVO_LEFT_ANGLE:
-            next_angle = SERVO_LEFT_ANGLE
+        elif next_angle <= SERVO_SCAN_MIN:
+            next_angle = SERVO_SCAN_MIN
             direction = 1
             
         look_at(next_angle, wait_settle=False) # Don't sleep long, just continuous
@@ -128,5 +136,6 @@ def resume_sweep():
 def cleanup():
     """Center servo, stop PWM, release GPIO."""
     stop_sweep()
-    _pwm.stop()
+    if _pwm:
+        _pwm.stop()
     GPIO.cleanup([SERVO_PIN])

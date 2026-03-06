@@ -1,4 +1,4 @@
-# config/settings.py — Central configuration for the rover
+# utils/config.py — Central configuration for the rover
 
 # =============================================================================
 # GPIO PIN MAPPING (BCM numbering)
@@ -27,19 +27,24 @@ PWM_FREQUENCY = 1000      # Hz
 DEFAULT_SPEED = 60        # duty cycle 0–100
 TURN_SPEED = 50           # duty cycle during turns
 TURN_DURATION = 0.4       # seconds to turn before resuming forward
+ROVER_WIDTH_CM = 20       # Chassis width in cm
+REVERSE_DISTANCE_CM = 5
 
 # =============================================================================
 # ULTRASONIC / OBSTACLE AVOIDANCE
 # =============================================================================
 
-EMERGENCY_STOP_CM = 15    # immediate stop distance
-AVOIDANCE_TRIGGER_CM = 25 # start avoidance maneuver
-ULTRASONIC_TIMEOUT = 0.04 # seconds — max wait for echo (~6.8m range)
-ULTRASONIC_SAMPLES = 3    # number of readings to average
+EMERGENCY_STOP_DISTANCE = 15    # cm - immediate stop distance
+OBSTACLE_DISTANCE = 30          # cm - start avoidance maneuver
+ULTRASONIC_TIMEOUT = 0.04       # seconds — max wait for echo (~6.8m range)
+ULTRASONIC_SAMPLES = 3          # number of readings to average
 
 # =============================================================================
 # SERVO
 # =============================================================================
+
+SERVO_SCAN_MIN = -60      # degrees relative to forward
+SERVO_SCAN_MAX = 60       # degrees relative to forward
 
 SERVO_LEFT_ANGLE = 15     # degrees
 SERVO_CENTER_ANGLE = 90   # degrees

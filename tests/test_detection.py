@@ -3,8 +3,8 @@
 
 import time
 import cv2
-from modules import camera
-from modules import detector
+from sensors import camera_detection as camera
+from sensors import camera_detection as detector
 
 
 def test_camera_feed():

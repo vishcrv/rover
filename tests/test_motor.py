@@ -2,8 +2,8 @@
 # Run on Raspberry Pi: python -m tests.test_motor
 
 import time
-from modules import motor
-from config.settings import DEFAULT_SPEED, TURN_SPEED
+from actuators import motor_controller as motor
+from utils.config import DEFAULT_SPEED, TURN_SPEED
 
 DRIVE_TIME = 2   # seconds per movement test
 

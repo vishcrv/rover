@@ -3,7 +3,7 @@
 # Then open browser:    http://<PI_IP>:8080
 
 import time
-from modules import camera
+from sensors import camera_detection as camera
 from streaming import server as stream_server
 
 
@@ -31,7 +31,7 @@ def test_stream_only():
 def test_capture_and_send():
     """Capture an image and send it to PC server."""
     from datetime import datetime
-    from modules import transmitter
+    from utils import transmitter
 
     print("=== Capture + Send Test ===\n")
     print("  Make sure pc_server.py is running on your PC first!\n")
@@ -59,7 +59,7 @@ def test_capture_and_send():
 def test_stream_and_send():
     """Stream + capture + send all together."""
     from datetime import datetime
-    from modules import transmitter
+    from utils import transmitter
 
     print("=== Stream + Capture + Send Test ===\n")
     print("  Make sure pc_server.py is running on your PC first!\n")
