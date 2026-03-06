@@ -76,17 +76,20 @@ def _capture_loop():
     """Continuously grab frames, store the latest, and process detection (thread-safe)."""
     global _latest_frame, _consecutive_hits
     while _running:
-        frame = _camera.capture_array()
-        
-        # Process detection directly inline so it's always up to date
-        detected, _ = _detect_red(frame)
-        
-        with _lock:
-            _latest_frame = frame
-            if detected:
-                _consecutive_hits += 1
-            else:
-                _consecutive_hits = 0
+        try:
+            frame = _camera.capture_array()
+            
+            # Process detection directly inline so it's always up to date
+            detected, _ = _detect_red(frame)
+            
+            with _lock:
+                _latest_frame = frame
+                if detected:
+                    _consecutive_hits += 1
+                else:
+                    _consecutive_hits = 0
+        except Exception as e:
+            print("Capture error:", e)
 
 
 def is_red_detected():
