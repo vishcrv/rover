@@ -4,7 +4,7 @@ import cv2
 import time
 import threading
 from flask import Flask, Response
-from config.settings import STREAM_HOST, STREAM_PORT
+from utils.config import STREAM_HOST, STREAM_PORT
 from modules import camera
 
 app = Flask(__name__)

@@ -1,12 +1,12 @@
 # modules/obstacle.py — Obstacle avoidance logic (ultrasonic + servo + motor)
 
 import time
-from config.settings import (
-    EMERGENCY_STOP_CM, AVOIDANCE_TRIGGER_CM,
+from utils.config import (
+    EMERGENCY_STOP_DISTANCE, OBSTACLE_DISTANCE,
     TURN_SPEED, TURN_DURATION, DEFAULT_SPEED,
 )
 from modules import ultrasonic, servo, motor
-from config.settings import SERVO_CENTER_ANGLE
+from utils.config import SERVO_CENTER_ANGLE
 
 _BACKUP_TIME = 0.3  # seconds to reverse after emergency stop
 
@@ -20,7 +20,7 @@ def check_and_avoid():
     """
     distance = ultrasonic.get_distance()
 
-    if distance > AVOIDANCE_TRIGGER_CM:
+    if distance > OBSTACLE_DISTANCE:
         return False  # clear path
 
     # -- Obstacle within range --
@@ -28,7 +28,7 @@ def check_and_avoid():
     servo.pause_sweep()
 
     # Emergency: too close — back up first
-    if distance <= EMERGENCY_STOP_CM:
+    if distance <= EMERGENCY_STOP_DISTANCE:
         motor.backward(TURN_SPEED)
         time.sleep(_BACKUP_TIME)
         motor.stop()
