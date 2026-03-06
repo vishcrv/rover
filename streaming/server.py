@@ -5,7 +5,7 @@ import time
 import threading
 from flask import Flask, Response
 from utils.config import STREAM_HOST, STREAM_PORT
-from modules import camera
+from sensors import camera_detection as camera
 
 app = Flask(__name__)
 
