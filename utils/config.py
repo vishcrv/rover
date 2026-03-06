@@ -43,8 +43,8 @@ ULTRASONIC_SAMPLES = 3          # number of readings to average
 # SERVO
 # =============================================================================
 
-SERVO_SCAN_MIN = -60      # degrees relative to forward
-SERVO_SCAN_MAX = 60       # degrees relative to forward
+SERVO_SCAN_MIN = -50      # degrees relative to forward
+SERVO_SCAN_MAX = 50       # degrees relative to forward
 
 SERVO_LEFT_ANGLE = 15     # degrees
 SERVO_CENTER_ANGLE = 90   # degrees

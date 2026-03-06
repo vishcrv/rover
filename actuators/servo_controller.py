@@ -22,7 +22,7 @@ _sweep_thread = None
 _stop_sweep_event = threading.Event()
 _pause_sweep_event = threading.Event()
 _SWEEP_STEP = 5       # degrees per tick
-_SWEEP_DELAY = 0.05   # seconds per tick (adjust for speed)
+_SWEEP_DELAY = 0.115  # seconds per tick (adjust for speed)
 
 
 def setup():
