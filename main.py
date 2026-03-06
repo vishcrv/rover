@@ -8,7 +8,7 @@ import threading
 from datetime import datetime
 from enum import Enum, auto
 
-from config.settings import DEFAULT_SPEED, DEMO_DURATION, STREAM_PORT
+from config.settings import DEFAULT_SPEED, STREAM_PORT, AVOIDANCE_TRIGGER_CM, TURN_SPEED, TURN_DURATION
 from modules import motor, ultrasonic, servo, camera, detector, transmitter
 from modules.obstacle import check_and_avoid
 from streaming import server as stream_server
@@ -31,7 +31,6 @@ class State(Enum):
     BOOT = auto()
     SEARCH = auto()
     DETECTED = auto()
-    DEMO_CONTINUE = auto()
     SHUTDOWN = auto()
 
 
@@ -60,11 +59,11 @@ def _set_state(new_state):
 # Navigation thread
 # ---------------------------------------------------------------------------
 def _navigation_loop():
-    """Move forward and avoid obstacles while in SEARCH or DEMO_CONTINUE."""
+    """Move forward and avoid obstacles while in SEARCH state."""
     while not _shutdown_event.is_set():
         state = _get_state()
 
-        if state in (State.SEARCH, State.DEMO_CONTINUE):
+        if state == State.SEARCH:
             avoided = check_and_avoid()
             if not avoided:
                 motor.forward(DEFAULT_SPEED)
@@ -127,17 +126,22 @@ def _boot():
 # Detection handling
 # ---------------------------------------------------------------------------
 def _handle_detection():
-    """Stop, capture image, and send data to PC."""
+    """Stop → wait 2s → capture → wait 10s → scan → turn → resume."""
+    # 1. Stop all motors and servo sweep
     motor.stop()
-    log.info("Motors stopped")
+    servo.stop_sweep()
+    log.info("Motors and servo stopped for detection")
 
-    # Capture image
+    # 2. Wait 2 seconds (hold still for a stable image)
+    log.info("Holding still for 2 seconds...")
+    time.sleep(2.0)
+
+    # 3. Capture image and send to PC
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"detection_{ts}.jpg"
     image_path = camera.capture_image(filename)
     log.info("Image captured: %s", image_path)
 
-    # Send to PC
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     success = transmitter.send_detection(image_path, timestamp)
     if success:
@@ -148,6 +152,41 @@ def _handle_detection():
     # Reset detector for future detections
     detector.reset()
     _detection_event.clear()
+
+    # 4. Wait 10 seconds (all motors stopped)
+    log.info("Waiting 10 seconds post-detection...")
+    for _ in range(100):  # 100 × 0.1s = 10s, checking for shutdown
+        if _shutdown_event.is_set():
+            return
+        time.sleep(0.1)
+
+    # 5. Perform full servo scan to find best direction
+    log.info("Performing post-detection scan...")
+    distances = servo.full_scan()
+    log.info("Scan results: %s", distances)
+
+    # 6. Pick best direction and turn toward it
+    best_angle = 0
+    best_dist = -1
+    for angle, dist in distances.items():
+        if dist > best_dist:
+            best_dist = dist
+            best_angle = angle
+
+    log.info("Best direction: %d° (%.1f cm)", best_angle, best_dist)
+
+    if best_dist > AVOIDANCE_TRIGGER_CM and best_angle != 0:
+        if best_angle < 0:
+            motor.turn_left(TURN_SPEED)
+        else:
+            motor.turn_right(TURN_SPEED)
+
+        turn_time = TURN_DURATION * (abs(best_angle) / 50.0)
+        turn_time = max(turn_time, 0.2)
+        time.sleep(turn_time)
+        motor.stop()
+
+    log.info("Post-detection maneuver complete — resuming SEARCH")
 
 
 # ---------------------------------------------------------------------------
@@ -211,24 +250,10 @@ def main():
                     _set_state(State.DETECTED)
 
             elif state == State.DETECTED:
-                servo.stop_sweep()
                 _handle_detection()
-                _set_state(State.DEMO_CONTINUE)
-
-            elif state == State.DEMO_CONTINUE:
-                log.info("Demo mode — continuing for %ds", DEMO_DURATION)
-                # Run for DEMO_DURATION, checking for shutdown
-                deadline = time.time() + DEMO_DURATION
-                while time.time() < deadline:
-                    if _shutdown_event.is_set():
-                        break
-                    time.sleep(0.5)
-
-                if not _shutdown_event.is_set():
-                    motor.stop()
-                    log.info("Demo complete — returning to SEARCH")
-                    _set_state(State.SEARCH)
-                    servo.start_sweep()
+                # Return to SEARCH after detection handling
+                _set_state(State.SEARCH)
+                servo.start_sweep()
 
             elif state == State.SHUTDOWN:
                 break

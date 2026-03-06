@@ -6,7 +6,7 @@ import RPi.GPIO as GPIO
 from config.settings import (
     SERVO_PIN,
     SERVO_LEFT_ANGLE, SERVO_CENTER_ANGLE, SERVO_RIGHT_ANGLE,
-    SERVO_SETTLE_TIME,
+    SERVO_SETTLE_TIME, SERVO_SCAN_STEP, OBSTACLE_SCAN_SETTLE,
 )
 
 _pwm = None
@@ -75,26 +75,68 @@ def _sweep_loop():
     """Continuously sweep the servo back and forth."""
     global _current_angle
     
-    direction = 1  # 1 for right (increasing angle), -1 for left (decreasing)
+    # Determine sweep boundaries (works regardless of which angle is larger)
+    sweep_min = min(SERVO_LEFT_ANGLE, SERVO_RIGHT_ANGLE)
+    sweep_max = max(SERVO_LEFT_ANGLE, SERVO_RIGHT_ANGLE)
+    direction = 1  # 1 = increasing angle, -1 = decreasing angle
     
-    # Pre-calculate duty cycles to avoid jitter between steps in continuous motion
     while not _stop_sweep_event.is_set():
         if _pause_sweep_event.is_set():
-            _pwm.ChangeDutyCycle(0) # stop jitter while paused
+            _pwm.ChangeDutyCycle(0)  # stop jitter while paused
             time.sleep(0.1)
             continue
             
         next_angle = _current_angle + (direction * _SWEEP_STEP)
         
-        if next_angle >= SERVO_RIGHT_ANGLE:
-            next_angle = SERVO_RIGHT_ANGLE
+        if next_angle >= sweep_max:
+            next_angle = sweep_max
             direction = -1
-        elif next_angle <= SERVO_LEFT_ANGLE:
-            next_angle = SERVO_LEFT_ANGLE
+        elif next_angle <= sweep_min:
+            next_angle = sweep_min
             direction = 1
             
-        look_at(next_angle, wait_settle=False) # Don't sleep long, just continuous
+        look_at(next_angle, wait_settle=False)
         time.sleep(_SWEEP_DELAY)
+
+
+def full_scan():
+    """Perform a discrete scan and return {angle: distance_cm}.
+    
+    Steps the servo from left to right in SERVO_SCAN_STEP increments,
+    taking an ultrasonic reading at each position.
+    """
+    from modules import ultrasonic  # local import to avoid circular
+    
+    distances = {}
+    
+    # Determine scan range (step from left → right regardless of which is numerically larger)
+    scan_start = SERVO_LEFT_ANGLE
+    scan_end = SERVO_RIGHT_ANGLE
+    step = -SERVO_SCAN_STEP if scan_start > scan_end else SERVO_SCAN_STEP
+    
+    angle = scan_start
+    while True:
+        look_at(angle, wait_settle=True)
+        time.sleep(OBSTACLE_SCAN_SETTLE)
+        dist = ultrasonic.get_distance()
+        # Convert servo angle to relative degrees (0 = forward)
+        relative = angle - SERVO_CENTER_ANGLE
+        distances[relative] = dist
+        
+        # Check if we've reached or passed the end
+        if step > 0 and angle >= scan_end:
+            break
+        if step < 0 and angle <= scan_end:
+            break
+        angle += step
+        # Clamp to end
+        if step > 0 and angle > scan_end:
+            angle = scan_end
+        elif step < 0 and angle < scan_end:
+            angle = scan_end
+    
+    look_center()
+    return distances
 
 
 def start_sweep():

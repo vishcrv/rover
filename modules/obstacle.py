@@ -1,18 +1,20 @@
 # modules/obstacle.py — Obstacle avoidance logic (ultrasonic + servo + motor)
 
 import time
+import logging
 from config.settings import (
     EMERGENCY_STOP_CM, AVOIDANCE_TRIGGER_CM,
-    TURN_SPEED, TURN_DURATION, DEFAULT_SPEED,
+    TURN_SPEED, TURN_DURATION,
 )
 from modules import ultrasonic, servo, motor
-from config.settings import SERVO_CENTER_ANGLE
+
+log = logging.getLogger("obstacle")
 
 _BACKUP_TIME = 0.3  # seconds to reverse after emergency stop
 
 
 def check_and_avoid():
-    """Check for obstacles and maneuver around them based on active sweep angle.
+    """Check for obstacles and perform intelligent avoidance.
 
     Returns:
         True  — obstacle was detected and avoidance was performed.
@@ -25,27 +27,50 @@ def check_and_avoid():
 
     # -- Obstacle within range --
     motor.stop()
-    servo.pause_sweep()
+    servo.stop_sweep()
+    log.info("Obstacle at %.1f cm — stopping and scanning.", distance)
 
     # Emergency: too close — back up first
     if distance <= EMERGENCY_STOP_CM:
+        log.info("Emergency backup!")
         motor.backward(TURN_SPEED)
         time.sleep(_BACKUP_TIME)
         motor.stop()
 
-    # Determine turn direction based on current sweep angle
-    current_angle = servo.get_current_angle()
-    
-    # If the servo is looking left (angle < center), obstacle is on the left -> turn right
-    # If the servo is looking right (angle > center), obstacle is on the right -> turn left
-    if current_angle < SERVO_CENTER_ANGLE:
-        motor.turn_right(TURN_SPEED)
+    # Perform a full scan to find the best escape direction
+    distances = servo.full_scan()
+    log.info("Scan results: %s", distances)
+
+    # Pick the angle with the longest clear distance
+    best_angle = 0
+    best_dist = -1
+    for angle, dist in distances.items():
+        if dist > best_dist:
+            best_dist = dist
+            best_angle = angle
+
+    log.info("Best direction: %d° (%.1f cm)", best_angle, best_dist)
+
+    if best_dist > AVOIDANCE_TRIGGER_CM:
+        # Turn toward the best direction
+        # best_angle is relative to center (negative = left, positive = right)
+        if best_angle < 0:
+            motor.turn_left(TURN_SPEED)
+        elif best_angle > 0:
+            motor.turn_right(TURN_SPEED)
+
+        # Turn duration proportional to how far off-center the best angle is
+        turn_time = TURN_DURATION * (abs(best_angle) / 50.0)
+        turn_time = max(turn_time, 0.2)  # minimum turn
+        time.sleep(turn_time)
+        motor.stop()
     else:
-        motor.turn_left(TURN_SPEED)
+        # No clear path found — reverse more and try again next cycle
+        log.warning("No clear path found, reversing further.")
+        motor.backward(TURN_SPEED)
+        time.sleep(0.5)
+        motor.stop()
 
-    time.sleep(TURN_DURATION)
-    motor.stop()
-    
-    servo.resume_sweep()
+    # Resume sweeping
+    servo.start_sweep()
     return True
-

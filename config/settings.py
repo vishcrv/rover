@@ -41,19 +41,21 @@ ULTRASONIC_SAMPLES = 3    # number of readings to average
 # SERVO
 # =============================================================================
 
-SERVO_LEFT_ANGLE = 15     # degrees
+SERVO_LEFT_ANGLE = 165    # degrees (high PWM angle = physical left)
 SERVO_CENTER_ANGLE = 90   # degrees
-SERVO_RIGHT_ANGLE = 165   # degrees
+SERVO_RIGHT_ANGLE = 15    # degrees (low PWM angle = physical right)
 SERVO_SETTLE_TIME = 0.3   # seconds to wait after moving servo
+SERVO_SCAN_STEP = 15      # degrees between scan readings
+OBSTACLE_SCAN_SETTLE = 0.3  # seconds to let servo settle during scan
 
 # =============================================================================
 # RED OBJECT DETECTION (HSV)
 # =============================================================================
 
 # Red wraps around hue 0/180 — two ranges needed
-RED_LOWER_1 = (0, 120, 70)
+RED_LOWER_1 = (0, 70, 50)
 RED_UPPER_1 = (10, 255, 255)
-RED_LOWER_2 = (170, 120, 70)
+RED_LOWER_2 = (170, 70, 50)
 RED_UPPER_2 = (180, 255, 255)
 
 MIN_CONTOUR_AREA = 500            # pixels² — ignore smaller contours as noise
