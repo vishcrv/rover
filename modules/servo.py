@@ -1,140 +1,126 @@
-# modules/servo.py — Servo sweep control for obstacle scanning
+# modules/servo.py — Servo sweep control using pigpio (hardware PWM)
 
 import time
 import threading
-import RPi.GPIO as GPIO
+import pigpio
 from config.settings import (
     SERVO_PIN,
-    SERVO_LEFT_ANGLE, SERVO_CENTER_ANGLE, SERVO_RIGHT_ANGLE,
-    SERVO_SETTLE_TIME, SERVO_SCAN_STEP, OBSTACLE_SCAN_SETTLE,
+    SERVO_LEFT_PW, SERVO_CENTER_PW, SERVO_RIGHT_PW,
+    SERVO_MOVE_DELAY, SERVO_SCAN_STEP_PW, SERVO_SCAN_SETTLE,
 )
 
-_pwm = None
-
-# SG90/MG90S typical: 2.5% (0°) to 12.5% (180°)
-_MIN_DUTY = 2.5
-_MAX_DUTY = 12.5
+_pi = None
+_current_pw = SERVO_CENTER_PW
 
 # Sweeping state
-_current_angle = SERVO_CENTER_ANGLE
 _sweep_thread = None
 _stop_sweep_event = threading.Event()
 _pause_sweep_event = threading.Event()
-_SWEEP_STEP = 5       # degrees per tick
-_SWEEP_DELAY = 0.05   # seconds per tick (adjust for speed)
+
 
 def setup():
-    """Initialize servo GPIO and center the servo."""
-    global _pwm, _current_angle
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setwarnings(False)
-    GPIO.setup(SERVO_PIN, GPIO.OUT)
-    _pwm = GPIO.PWM(SERVO_PIN, 50)  # 50 Hz for servo
-    _pwm.start(0)
-    _current_angle = SERVO_CENTER_ANGLE
+    """Initialize pigpio connection and center the servo."""
+    global _pi, _current_pw
+    _pi = pigpio.pi()
+    if not _pi.connected:
+        raise RuntimeError(
+            "pigpiod not running! Start with: sudo systemctl start pigpiod"
+        )
+    _current_pw = SERVO_CENTER_PW
     look_center()
 
 
-def _angle_to_duty(angle):
-    """Convert angle (0–180) to duty cycle."""
-    return _MIN_DUTY + (angle / 180) * (_MAX_DUTY - _MIN_DUTY)
+def _move(pulsewidth):
+    """Set servo to a pulsewidth, hold for MOVE_DELAY, then stop signal."""
+    global _current_pw
+    _current_pw = pulsewidth
+    _pi.set_servo_pulsewidth(SERVO_PIN, pulsewidth)
+    time.sleep(SERVO_MOVE_DELAY)
+    _pi.set_servo_pulsewidth(SERVO_PIN, 0)  # stop signal to prevent jitter
+    time.sleep(0.05)
 
 
-def look_at(angle, wait_settle=True):
-    """Rotate servo to a specific angle (0–180)."""
-    global _current_angle
-    _current_angle = angle
-    duty = _angle_to_duty(angle)
-    _pwm.ChangeDutyCycle(duty)
-    if wait_settle:
-        time.sleep(SERVO_SETTLE_TIME)
-        _pwm.ChangeDutyCycle(0)  # stop signal to prevent jitter
+def look_at(pulsewidth, wait=True):
+    """Rotate servo to a specific pulsewidth (μs).
+
+    Args:
+        pulsewidth: Target position in microseconds (typically 1000–2000).
+        wait: If True, hold position for MOVE_DELAY then stop signal.
+              If False, just set position immediately (for continuous sweep).
+    """
+    global _current_pw
+    _current_pw = pulsewidth
+    _pi.set_servo_pulsewidth(SERVO_PIN, pulsewidth)
+    if wait:
+        time.sleep(SERVO_MOVE_DELAY)
+        _pi.set_servo_pulsewidth(SERVO_PIN, 0)
+        time.sleep(0.05)
 
 
 def look_left():
     """Point ultrasonic sensor left."""
-    look_at(SERVO_LEFT_ANGLE)
+    look_at(SERVO_LEFT_PW)
 
 
 def look_center():
     """Point ultrasonic sensor forward."""
-    look_at(SERVO_CENTER_ANGLE)
+    look_at(SERVO_CENTER_PW)
 
 
 def look_right():
     """Point ultrasonic sensor right."""
-    look_at(SERVO_RIGHT_ANGLE)
+    look_at(SERVO_RIGHT_PW)
 
 
-def get_current_angle():
-    """Return the current angle of the servo."""
-    return _current_angle
+def get_current_pw():
+    """Return the current pulsewidth of the servo."""
+    return _current_pw
 
 
 def _sweep_loop():
-    """Continuously sweep the servo back and forth."""
-    global _current_angle
-    
-    # Determine sweep boundaries (works regardless of which angle is larger)
-    sweep_min = min(SERVO_LEFT_ANGLE, SERVO_RIGHT_ANGLE)
-    sweep_max = max(SERVO_LEFT_ANGLE, SERVO_RIGHT_ANGLE)
-    direction = 1  # 1 = increasing angle, -1 = decreasing angle
-    
+    """Continuously sweep the servo between left and right limits."""
     while not _stop_sweep_event.is_set():
         if _pause_sweep_event.is_set():
-            _pwm.ChangeDutyCycle(0)  # stop jitter while paused
+            _pi.set_servo_pulsewidth(SERVO_PIN, 0)
             time.sleep(0.1)
             continue
-            
-        next_angle = _current_angle + (direction * _SWEEP_STEP)
-        
-        if next_angle >= sweep_max:
-            next_angle = sweep_max
-            direction = -1
-        elif next_angle <= sweep_min:
-            next_angle = sweep_min
-            direction = 1
-            
-        look_at(next_angle, wait_settle=False)
-        time.sleep(_SWEEP_DELAY)
+
+        _move(SERVO_LEFT_PW)
+        if _stop_sweep_event.is_set() or _pause_sweep_event.is_set():
+            break
+
+        _move(SERVO_RIGHT_PW)
+        if _stop_sweep_event.is_set() or _pause_sweep_event.is_set():
+            break
 
 
 def full_scan():
-    """Perform a discrete scan and return {angle: distance_cm}.
-    
-    Steps the servo from left to right in SERVO_SCAN_STEP increments,
+    """Perform a discrete scan and return {pw_offset: distance_cm}.
+
+    Steps the servo across its range in SERVO_SCAN_STEP_PW increments,
     taking an ultrasonic reading at each position.
+
+    Returns a dict where keys are pulsewidth offsets from center
+    (negative = right of center, positive = left of center).
     """
     from modules import ultrasonic  # local import to avoid circular
-    
+
     distances = {}
-    
-    # Determine scan range (step from left → right regardless of which is numerically larger)
-    scan_start = SERVO_LEFT_ANGLE
-    scan_end = SERVO_RIGHT_ANGLE
-    step = -SERVO_SCAN_STEP if scan_start > scan_end else SERVO_SCAN_STEP
-    
-    angle = scan_start
-    while True:
-        look_at(angle, wait_settle=True)
-        time.sleep(OBSTACLE_SCAN_SETTLE)
+
+    # Determine scan direction
+    pw_min = min(SERVO_LEFT_PW, SERVO_RIGHT_PW)
+    pw_max = max(SERVO_LEFT_PW, SERVO_RIGHT_PW)
+
+    pw = pw_min
+    while pw <= pw_max:
+        look_at(pw, wait=True)
+        time.sleep(SERVO_SCAN_SETTLE)
         dist = ultrasonic.get_distance()
-        # Convert servo angle to relative degrees (0 = forward)
-        relative = angle - SERVO_CENTER_ANGLE
-        distances[relative] = dist
-        
-        # Check if we've reached or passed the end
-        if step > 0 and angle >= scan_end:
-            break
-        if step < 0 and angle <= scan_end:
-            break
-        angle += step
-        # Clamp to end
-        if step > 0 and angle > scan_end:
-            angle = scan_end
-        elif step < 0 and angle < scan_end:
-            angle = scan_end
-    
+        # Offset relative to center (positive = left, negative = right)
+        offset = pw - SERVO_CENTER_PW
+        distances[offset] = dist
+        pw += SERVO_SCAN_STEP_PW
+
     look_center()
     return distances
 
@@ -153,7 +139,7 @@ def stop_sweep():
     """Stop the background sweep thread entirely."""
     _stop_sweep_event.set()
     if _sweep_thread is not None:
-        _sweep_thread.join(timeout=1.0)
+        _sweep_thread.join(timeout=2.0)
     look_center()
 
 
@@ -168,7 +154,9 @@ def resume_sweep():
 
 
 def cleanup():
-    """Center servo, stop PWM, release GPIO."""
+    """Center servo, stop signal, release pigpio."""
     stop_sweep()
-    _pwm.stop()
-    GPIO.cleanup([SERVO_PIN])
+    _pi.set_servo_pulsewidth(SERVO_PIN, SERVO_CENTER_PW)
+    time.sleep(0.5)
+    _pi.set_servo_pulsewidth(SERVO_PIN, 0)
+    _pi.stop()

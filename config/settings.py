@@ -38,15 +38,15 @@ ULTRASONIC_TIMEOUT = 0.04 # seconds — max wait for echo (~6.8m range)
 ULTRASONIC_SAMPLES = 3    # number of readings to average
 
 # =============================================================================
-# SERVO
+# SERVO (pigpio pulsewidth control)
 # =============================================================================
 
-SERVO_LEFT_ANGLE = 165    # degrees (high PWM angle = physical left)
-SERVO_CENTER_ANGLE = 90   # degrees
-SERVO_RIGHT_ANGLE = 15    # degrees (low PWM angle = physical right)
-SERVO_SETTLE_TIME = 0.3   # seconds to wait after moving servo
-SERVO_SCAN_STEP = 15      # degrees between scan readings
-OBSTACLE_SCAN_SETTLE = 0.3  # seconds to let servo settle during scan
+SERVO_LEFT_PW = 1580      # μs — tested left limit
+SERVO_CENTER_PW = 1500    # μs — neutral center
+SERVO_RIGHT_PW = 1420     # μs — tested right limit
+SERVO_MOVE_DELAY = 1.0    # seconds — pause at each sweep position
+SERVO_SCAN_STEP_PW = 20   # μs — step between scan readings
+SERVO_SCAN_SETTLE = 0.3   # seconds — settle before ultrasonic read
 
 # =============================================================================
 # RED OBJECT DETECTION (HSV)

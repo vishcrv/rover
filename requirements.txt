@@ -2,5 +2,6 @@ opencv-python-headless==4.9.0.80
 picamera2==0.3.19
 RPi.GPIO==0.7.1
 gpiozero==2.0.1
+pigpio==1.78
 flask==3.0.3
 requests==2.32.3

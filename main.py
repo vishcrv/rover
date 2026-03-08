@@ -166,22 +166,22 @@ def _handle_detection():
     log.info("Scan results: %s", distances)
 
     # 6. Pick best direction and turn toward it
-    best_angle = 0
+    best_offset = 0
     best_dist = -1
-    for angle, dist in distances.items():
+    for offset, dist in distances.items():
         if dist > best_dist:
             best_dist = dist
-            best_angle = angle
+            best_offset = offset
 
-    log.info("Best direction: %d° (%.1f cm)", best_angle, best_dist)
+    log.info("Best direction: %+d μs offset (%.1f cm)", best_offset, best_dist)
 
-    if best_dist > AVOIDANCE_TRIGGER_CM and best_angle != 0:
-        if best_angle < 0:
+    if best_dist > AVOIDANCE_TRIGGER_CM and best_offset != 0:
+        if best_offset > 0:
             motor.turn_left(TURN_SPEED)
         else:
             motor.turn_right(TURN_SPEED)
 
-        turn_time = TURN_DURATION * (abs(best_angle) / 50.0)
+        turn_time = TURN_DURATION * (abs(best_offset) / 80.0)
         turn_time = max(turn_time, 0.2)
         time.sleep(turn_time)
         motor.stop()

@@ -41,26 +41,27 @@ def check_and_avoid():
     distances = servo.full_scan()
     log.info("Scan results: %s", distances)
 
-    # Pick the angle with the longest clear distance
-    best_angle = 0
+    # Pick the direction with the longest clear distance
+    # Keys are pw offsets from center (positive = left, negative = right)
+    best_offset = 0
     best_dist = -1
-    for angle, dist in distances.items():
+    for offset, dist in distances.items():
         if dist > best_dist:
             best_dist = dist
-            best_angle = angle
+            best_offset = offset
 
-    log.info("Best direction: %d° (%.1f cm)", best_angle, best_dist)
+    log.info("Best direction: %+d μs offset (%.1f cm)", best_offset, best_dist)
 
     if best_dist > AVOIDANCE_TRIGGER_CM:
         # Turn toward the best direction
-        # best_angle is relative to center (negative = left, positive = right)
-        if best_angle < 0:
+        # best_offset: positive = left of center, negative = right of center
+        if best_offset > 0:
             motor.turn_left(TURN_SPEED)
-        elif best_angle > 0:
+        elif best_offset < 0:
             motor.turn_right(TURN_SPEED)
 
-        # Turn duration proportional to how far off-center the best angle is
-        turn_time = TURN_DURATION * (abs(best_angle) / 50.0)
+        # Turn duration proportional to how far off-center
+        turn_time = TURN_DURATION * (abs(best_offset) / 80.0)
         turn_time = max(turn_time, 0.2)  # minimum turn
         time.sleep(turn_time)
         motor.stop()

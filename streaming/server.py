@@ -2,10 +2,14 @@
 
 import cv2
 import time
+import logging
 import threading
 from flask import Flask, Response
 from config.settings import STREAM_HOST, STREAM_PORT
 from modules import camera
+
+# Suppress werkzeug request logs so they don't drown out application logs
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
 app = Flask(__name__)
 
