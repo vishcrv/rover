@@ -8,7 +8,7 @@ import threading
 from datetime import datetime
 from enum import Enum, auto
 
-from config.settings import DEFAULT_SPEED, STREAM_PORT, AVOIDANCE_TRIGGER_CM, TURN_SPEED, TURN_DURATION
+from config.settings import DEFAULT_SPEED, STREAM_PORT, AVOIDANCE_TRIGGER_CM, TURN_SPEED, TURN_DURATION, DEMO_DURATION
 from modules import motor, ultrasonic, servo, camera, detector, transmitter
 from modules.obstacle import check_and_avoid
 from streaming import server as stream_server
@@ -153,9 +153,10 @@ def _handle_detection():
     detector.reset()
     _detection_event.clear()
 
-    # 4. Wait 10 seconds (all motors stopped)
-    log.info("Waiting 10 seconds post-detection...")
-    for _ in range(100):  # 100 × 0.1s = 10s, checking for shutdown
+    # 4. Wait DEMO_DURATION seconds (all motors stopped)
+    log.info(f"Waiting {DEMO_DURATION} seconds post-detection...")
+    ticks = int(DEMO_DURATION * 10)
+    for _ in range(ticks):  # ticks × 0.1s
         if _shutdown_event.is_set():
             return
         time.sleep(0.1)

@@ -31,13 +31,21 @@ def setup():
 
 
 def _move(pulsewidth):
-    """Set servo to a pulsewidth, hold for MOVE_DELAY, then stop signal."""
+    """Set servo to a pulsewidth, hold for MOVE_DELAY, then stop signal.
+    Interruptible via _stop_sweep_event.
+    """
     global _current_pw
     _current_pw = pulsewidth
     _pi.set_servo_pulsewidth(SERVO_PIN, pulsewidth)
-    time.sleep(SERVO_MOVE_DELAY)
+    
+    # Break the delay into 0.1s chunks so the thread exits instantly on stop
+    ticks = max(1, int(SERVO_MOVE_DELAY / 0.1))
+    for _ in range(ticks):
+        if _stop_sweep_event.is_set() or _pause_sweep_event.is_set():
+            break
+        time.sleep(0.1)
+
     _pi.set_servo_pulsewidth(SERVO_PIN, 0)  # stop signal to prevent jitter
-    time.sleep(0.05)
 
 
 def look_at(pulsewidth, wait=True):
@@ -97,8 +105,8 @@ def _sweep_loop():
 def full_scan():
     """Perform a discrete scan and return {pw_offset: distance_cm}.
 
-    Steps the servo across its range in SERVO_SCAN_STEP_PW increments,
-    taking an ultrasonic reading at each position.
+    Checks exactly three positions (Center, Left, Right) starting from
+    the default Center position, matching simple test script logic.
 
     Returns a dict where keys are pulsewidth offsets from center
     (negative = right of center, positive = left of center).
@@ -107,20 +115,22 @@ def full_scan():
 
     distances = {}
 
-    # Determine scan direction
-    pw_min = min(SERVO_LEFT_PW, SERVO_RIGHT_PW)
-    pw_max = max(SERVO_LEFT_PW, SERVO_RIGHT_PW)
+    # 1. Center
+    look_center()
+    time.sleep(SERVO_SCAN_SETTLE)
+    distances[0] = ultrasonic.get_distance()
 
-    pw = pw_min
-    while pw <= pw_max:
-        look_at(pw, wait=True)
-        time.sleep(SERVO_SCAN_SETTLE)
-        dist = ultrasonic.get_distance()
-        # Offset relative to center (positive = left, negative = right)
-        offset = pw - SERVO_CENTER_PW
-        distances[offset] = dist
-        pw += SERVO_SCAN_STEP_PW
+    # 2. Left
+    look_left()
+    time.sleep(SERVO_SCAN_SETTLE)
+    distances[SERVO_LEFT_PW - SERVO_CENTER_PW] = ultrasonic.get_distance()
 
+    # 3. Right
+    look_right()
+    time.sleep(SERVO_SCAN_SETTLE)
+    distances[SERVO_RIGHT_PW - SERVO_CENTER_PW] = ultrasonic.get_distance()
+
+    # Return to Center
     look_center()
     return distances
 

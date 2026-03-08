@@ -76,7 +76,7 @@ CAPTURE_DIR = "/home/raspberry/captures"
 # DATA TRANSMISSION
 # =============================================================================
 
-PC_SERVER_IP = "172.16.61.102"    # PC's IP on the same network as the rover
+PC_SERVER_IP = "172.16.61.71"     # PC's IP on the same network as the rover
 PC_SERVER_PORT = 5001
 PC_DETECTION_ENDPOINT = "/detection"
 TRANSMIT_TIMEOUT = 5              # seconds — HTTP request timeout
@@ -92,4 +92,4 @@ STREAM_PORT = 8080
 # DEMO MODE
 # =============================================================================
 
-DEMO_DURATION = 10        # seconds to continue after red detection
+DEMO_DURATION = 2         # seconds to continue after red detection
