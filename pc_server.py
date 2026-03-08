@@ -62,4 +62,4 @@ if __name__ == "__main__":
     log.info("Starting PC server...")
     log.info("Saving images to: %s/", os.path.abspath(SAVE_DIR))
     log.info("Listening on 0.0.0.0:5001")
-    app.run(host="0.0.0.0", port=5001)
+    app.run(host="0.0.0.0", port=5000)

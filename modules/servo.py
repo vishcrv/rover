@@ -1,5 +1,3 @@
-# modules/servo.py — Servo sweep control using pigpio (hardware PWM)
-
 import time
 import threading
 import pigpio
@@ -10,128 +8,116 @@ from config.settings import (
 )
 
 _pi = None
-_current_pw = SERVO_CENTER_PW
 
 # Sweeping state
 _sweep_thread = None
 _stop_sweep_event = threading.Event()
 _pause_sweep_event = threading.Event()
 
+# Track position for continuous servo: 0 = Full Right (Initial), max_ticks = Full Left
+_offset_ticks = 0
+
 
 def setup():
-    """Initialize pigpio connection and center the servo."""
-    global _pi, _current_pw
+    """Initialize pigpio connection."""
+    global _pi, _offset_ticks
     _pi = pigpio.pi()
     if not _pi.connected:
         raise RuntimeError(
             "pigpiod not running! Start with: sudo systemctl start pigpiod"
         )
-    _current_pw = SERVO_CENTER_PW
-    look_center()
+    _offset_ticks = 0
+    _pi.set_servo_pulsewidth(SERVO_PIN, 0)
 
 
-def _move(pulsewidth):
-    """Set servo to a pulsewidth, hold for MOVE_DELAY, then stop signal.
-    Interruptible via _stop_sweep_event.
-    """
-    global _current_pw
-    _current_pw = pulsewidth
+def _do_ticks(pulsewidth, ticks):
+    """Wait for `ticks` * 0.1s, checking for interrupts."""
+    completed = 0
     _pi.set_servo_pulsewidth(SERVO_PIN, pulsewidth)
-    
-    # Break the delay into 0.1s chunks so the thread exits instantly on stop
-    ticks = max(1, int(SERVO_MOVE_DELAY / 0.1))
-    for _ in range(ticks):
+    for _ in range(int(ticks)):
         if _stop_sweep_event.is_set() or _pause_sweep_event.is_set():
             break
         time.sleep(0.1)
+        completed += 1
+    _pi.set_servo_pulsewidth(SERVO_PIN, 0)
+    return completed
 
-    _pi.set_servo_pulsewidth(SERVO_PIN, 0)  # stop signal to prevent jitter
 
-
-def look_at(pulsewidth, wait=True):
-    """Rotate servo to a specific pulsewidth (μs).
-
-    Args:
-        pulsewidth: Target position in microseconds (typically 1000–2000).
-        wait: If True, hold position for MOVE_DELAY then stop signal.
-              If False, just set position immediately (for continuous sweep).
-    """
-    global _current_pw
-    _current_pw = pulsewidth
-    _pi.set_servo_pulsewidth(SERVO_PIN, pulsewidth)
-    if wait:
-        time.sleep(SERVO_MOVE_DELAY)
+def _force_return_to_initial():
+    """Uninterruptible return to 0 offset (Full Right start state)."""
+    global _offset_ticks
+    if _offset_ticks > 0:
+        _pi.set_servo_pulsewidth(SERVO_PIN, SERVO_RIGHT_PW)
+        time.sleep(_offset_ticks * 0.1)
         _pi.set_servo_pulsewidth(SERVO_PIN, 0)
-        time.sleep(0.05)
-
-
-def look_left():
-    """Point ultrasonic sensor left."""
-    look_at(SERVO_LEFT_PW)
+        _offset_ticks = 0
 
 
 def look_center():
-    """Point ultrasonic sensor forward."""
-    look_at(SERVO_CENTER_PW)
-
-
-def look_right():
-    """Point ultrasonic sensor right."""
-    look_at(SERVO_RIGHT_PW)
-
-
-def get_current_pw():
-    """Return the current pulsewidth of the servo."""
-    return _current_pw
+    """Not applicable for timed continuous sweep."""
+    pass
 
 
 def _sweep_loop():
-    """Continuously sweep the servo between left and right limits."""
+    """Continuously sweep the servo using timed moves."""
+    global _offset_ticks
+    ticks_per_move = max(1, int(SERVO_MOVE_DELAY / 0.1))
+
     while not _stop_sweep_event.is_set():
         if _pause_sweep_event.is_set():
-            _pi.set_servo_pulsewidth(SERVO_PIN, 0)
             time.sleep(0.1)
             continue
 
-        _move(SERVO_LEFT_PW)
-        if _stop_sweep_event.is_set() or _pause_sweep_event.is_set():
-            break
+        # Complete the Left sweep (up to ticks_per_move)
+        if _offset_ticks < ticks_per_move:
+            done = _do_ticks(SERVO_LEFT_PW, ticks_per_move - _offset_ticks)
+            _offset_ticks += done
 
-        _move(SERVO_RIGHT_PW)
         if _stop_sweep_event.is_set() or _pause_sweep_event.is_set():
-            break
+            _force_return_to_initial()
+            continue
+
+        # Complete the Right sweep (back to 0)
+        if _offset_ticks > 0:
+            done = _do_ticks(SERVO_RIGHT_PW, _offset_ticks)
+            _offset_ticks -= done
+
+        if _stop_sweep_event.is_set() or _pause_sweep_event.is_set():
+            _force_return_to_initial()
+            continue
 
 
 def full_scan():
-    """Perform a discrete scan and return {pw_offset: distance_cm}.
+    """Perform a discrete scan and return {angle_approx: distance_cm}.
 
-    Checks exactly three positions (Center, Left, Right) starting from
-    the default Center position, matching simple test script logic.
-
-    Returns a dict where keys are pulsewidth offsets from center
-    (negative = right of center, positive = left of center).
+    Assumes we start at initial state (Offset 0 = Right).
+    Moves in 4 equal timed steps to arrive at Full Left, measuring at each point.
+    Then swiftly returns to initial state.
     """
-    from modules import ultrasonic  # local import to avoid circular
+    from modules import ultrasonic
 
     distances = {}
+    ticks_per_move = max(1, int(SERVO_MOVE_DELAY / 0.1))
+    steps = 4
+    ticks_per_step = ticks_per_move / steps
 
-    # 1. Center
-    look_center()
-    time.sleep(SERVO_SCAN_SETTLE)
-    distances[0] = ultrasonic.get_distance()
+    for i in range(steps + 1):
+        # Calculate approximate angle: -50 (Right) to +50 (Left)
+        angle_approx = -50 + (i / steps) * 100
+        distances[angle_approx] = ultrasonic.get_distance()
 
-    # 2. Left
-    look_left()
-    time.sleep(SERVO_SCAN_SETTLE)
-    distances[SERVO_LEFT_PW - SERVO_CENTER_PW] = ultrasonic.get_distance()
+        if i < steps:
+            # Move slightly left
+            _pi.set_servo_pulsewidth(SERVO_PIN, SERVO_LEFT_PW)
+            time.sleep(ticks_per_step * 0.1)
+            _pi.set_servo_pulsewidth(SERVO_PIN, 0)
+            time.sleep(SERVO_SCAN_SETTLE)
 
-    # 3. Right
-    look_right()
-    time.sleep(SERVO_SCAN_SETTLE)
-    distances[SERVO_RIGHT_PW - SERVO_CENTER_PW] = ultrasonic.get_distance()
+    # Completely return to Full Right (initial state)
+    _pi.set_servo_pulsewidth(SERVO_PIN, SERVO_RIGHT_PW)
+    time.sleep(ticks_per_move * 0.1)
+    _pi.set_servo_pulsewidth(SERVO_PIN, 0)
 
-    # Return to Center
-    look_center()
     return distances
 
 
@@ -146,15 +132,15 @@ def start_sweep():
 
 
 def stop_sweep():
-    """Stop the background sweep thread entirely."""
+    """Stop the background sweep thread entirely and reset position."""
     _stop_sweep_event.set()
     if _sweep_thread is not None:
-        _sweep_thread.join(timeout=2.0)
-    look_center()
+        _sweep_thread.join(timeout=3.0)
+    _force_return_to_initial()
 
 
 def pause_sweep():
-    """Temporarily pause the sweeping (e.g. during an avoidance maneuver)."""
+    """Temporarily pause the sweeping and reset position."""
     _pause_sweep_event.set()
 
 
@@ -164,9 +150,7 @@ def resume_sweep():
 
 
 def cleanup():
-    """Center servo, stop signal, release pigpio."""
+    """Stop signal and release pigpio."""
     stop_sweep()
-    _pi.set_servo_pulsewidth(SERVO_PIN, SERVO_CENTER_PW)
     time.sleep(0.5)
-    _pi.set_servo_pulsewidth(SERVO_PIN, 0)
     _pi.stop()
