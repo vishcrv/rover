@@ -1,10 +1,11 @@
-# tests/test_detection.py — Validation for camera and red object detection
+# tests/test_detection.py — Validation for camera and leaf detection
 # Run on Raspberry Pi: python -m tests.test_detection
 
 import time
 import cv2
 from modules import camera
 from modules import detector
+from config.settings import DETECTION_CONFIRM_FRAMES
 
 
 def test_camera_feed():
@@ -33,10 +34,10 @@ def test_capture_image():
     print(f"  Image saved to: {path}\n")
 
 
-def test_green_detection():
-    """Continuously check for green objects — prints detection status."""
-    print("=== Green Detection Live Test ===")
-    print("  Point camera at a green object.")
+def test_leaf_detection():
+    """Continuously check for leaf-like structures — prints detection status."""
+    print("=== Leaf Detection Live Test ===")
+    print("  Point camera at a leaf.")
     print("  Press Ctrl+C to stop.\n")
 
     camera.setup()
@@ -48,13 +49,19 @@ def test_green_detection():
             if frame is None:
                 continue
 
-            detected, contour = detector.detect_green(frame)
-            if detected:
-                area = cv2.contourArea(contour)
-                x, y, w, h = cv2.boundingRect(contour)
-                print(f"  GREEN DETECTED — area={area:.0f}px  bbox=({x},{y},{w},{h})")
+            leaves = detector.detect_leaves(frame)
+            if leaves:
+                for cnt, feat in leaves:
+                    x, y, w, h = feat["bbox"]
+                    print(
+                        f"  LEAF DETECTED — area={feat['area']:.0f}px "
+                        f"ar={feat['aspect_ratio']:.2f} "
+                        f"sol={feat['solidity']:.2f} "
+                        f"circ={feat['circularity']:.2f} "
+                        f"bbox=({x},{y},{w},{h})"
+                    )
             else:
-                print("  . no green")
+                print("  . no leaf")
 
             time.sleep(0.2)
     except KeyboardInterrupt:
@@ -64,7 +71,7 @@ def test_green_detection():
 def test_confirmed_detection():
     """Test multi-frame confirmation logic."""
     print("=== Confirmed Detection Test ===")
-    print(f"  Need {detector.DETECTION_CONFIRM_FRAMES} consecutive frames.")
+    print(f"  Need {DETECTION_CONFIRM_FRAMES} consecutive frames.")
     print("  Press Ctrl+C to stop.\n")
 
     camera.setup()
@@ -77,7 +84,7 @@ def test_confirmed_detection():
             if frame is None:
                 continue
 
-            confirmed = detector.check_confirmed(frame)
+            confirmed, _ = detector.check_confirmed(frame)
             count = detector.get_consecutive_count()
 
             if confirmed:
@@ -85,23 +92,51 @@ def test_confirmed_detection():
                 detector.reset()
                 time.sleep(2)
             elif count > 0:
-                print(f"  detecting... ({count}/{detector.DETECTION_CONFIRM_FRAMES})")
+                print(f"  detecting... ({count}/{DETECTION_CONFIRM_FRAMES})")
             else:
-                print("  . no green")
+                print("  . no leaf")
 
             time.sleep(0.1)
     except KeyboardInterrupt:
         print("\n  Stopped.")
 
 
+def test_annotated_preview():
+    """Show annotated frames in a local OpenCV window (for debugging on Pi with display)."""
+    print("=== Annotated Preview Test ===")
+    print("  Press 'q' to quit.\n")
+
+    camera.setup()
+    time.sleep(1)
+
+    try:
+        while True:
+            frame = camera.get_frame()
+            if frame is None:
+                continue
+
+            leaves = detector.detect_leaves(frame)
+            annotated = detector.annotate_frame(frame, leaves)
+
+            cv2.imshow("Leaf Detection", annotated)
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        cv2.destroyAllWindows()
+        print("  Stopped.")
+
+
 def run():
     print("Select test:")
     print("  1 — Camera feed (check frames)")
     print("  2 — Capture still image")
-    print("  3 — Green detection (live)")
+    print("  3 — Leaf detection (live, console)")
     print("  4 — Confirmed detection (multi-frame)")
+    print("  5 — Annotated preview (OpenCV window)")
 
-    choice = input("\nEnter choice (1-4): ").strip()
+    choice = input("\nEnter choice (1-5): ").strip()
 
     try:
         if choice == "1":
@@ -109,9 +144,11 @@ def run():
         elif choice == "2":
             test_capture_image()
         elif choice == "3":
-            test_green_detection()
+            test_leaf_detection()
         elif choice == "4":
             test_confirmed_detection()
+        elif choice == "5":
+            test_annotated_preview()
         else:
             print("Invalid choice.")
     finally:

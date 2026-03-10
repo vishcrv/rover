@@ -49,14 +49,32 @@ SERVO_SCAN_STEP_PW = 20   # μs — step between scan readings
 SERVO_SCAN_SETTLE = 0.3   # seconds — settle before ultrasonic read
 
 # =============================================================================
-# GREEN OBJECT DETECTION (HSV)
+# LEAF DETECTION — Preprocessing
 # =============================================================================
 
-# Green hue range is roughly 35-85
+# Green colour pre-filter (HSV)
 GREEN_LOWER = (35, 50, 50)
 GREEN_UPPER = (85, 255, 255)
+USE_GREEN_MASK = True             # True = use green HSV mask; False = adaptive threshold
+BLUR_KERNEL_SIZE = 5              # Gaussian blur kernel (must be odd)
 
-MIN_CONTOUR_AREA = 500            # pixels² — ignore smaller contours as noise
+# Canny edge detection
+CANNY_LOW = 50                    # lower hysteresis threshold
+CANNY_HIGH = 150                  # upper hysteresis threshold
+
+# =============================================================================
+# LEAF DETECTION — Shape Filtering
+# =============================================================================
+
+LEAF_MIN_AREA = 500               # pixels² — ignore tiny contours
+LEAF_MAX_AREA = 100000            # pixels² — ignore huge blobs
+LEAF_ASPECT_RATIO_MIN = 0.3      # width/height lower bound
+LEAF_ASPECT_RATIO_MAX = 3.5      # width/height upper bound
+LEAF_SOLIDITY_MIN = 0.5          # contour area / convex hull area
+LEAF_CIRCULARITY_MIN = 0.15      # leaves are not perfectly circular
+LEAF_CIRCULARITY_MAX = 0.85      # ... nor are they perfect circles
+
+MIN_CONTOUR_AREA = 500            # legacy alias (used nowhere new)
 DETECTION_CONFIRM_FRAMES = 5      # consecutive frames before confirming detection
 
 # =============================================================================
