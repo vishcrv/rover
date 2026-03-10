@@ -39,7 +39,13 @@ def _capture_loop():
     """Continuously grab frames and store the latest one (thread-safe)."""
     global _latest_frame
     while _running:
-        frame = _camera.capture_array()
+        try:
+            frame = _camera.capture_array()
+        except (ValueError, RuntimeError):
+            # Transient error: capture_file() from another thread temporarily
+            # reconfigures the camera buffer, causing a reshape mismatch.
+            # Safe to skip this frame and retry on the next iteration.
+            continue
         with _lock:
             _latest_frame = frame
 
