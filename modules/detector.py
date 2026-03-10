@@ -1,34 +1,31 @@
-# modules/detector.py — Red object detection using OpenCV
+# modules/detector.py — Green object detection using OpenCV
 
 import cv2
 import numpy as np
 from config.settings import (
-    RED_LOWER_1, RED_UPPER_1,
-    RED_LOWER_2, RED_UPPER_2,
+    GREEN_LOWER, GREEN_UPPER,
     MIN_CONTOUR_AREA, DETECTION_CONFIRM_FRAMES,
 )
 
 _consecutive_hits = 0
 
 
-def detect_red(frame):
-    """Analyze a single frame for red objects.
+def detect_green(frame):
+    """Analyze a single frame for green objects.
 
     Args:
         frame: numpy array in RGB format (from Picamera2).
 
     Returns:
         (detected, contour):
-            detected — True if a red object large enough was found.
+            detected — True if a green object large enough was found.
             contour  — the largest valid contour, or None.
     """
     # Convert RGB (from Picamera2) to HSV for color detection
     hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
 
-    # Red wraps around hue 0/180 — combine two masks
-    mask1 = cv2.inRange(hsv, np.array(RED_LOWER_1), np.array(RED_UPPER_1))
-    mask2 = cv2.inRange(hsv, np.array(RED_LOWER_2), np.array(RED_UPPER_2))
-    mask = mask1 | mask2
+    # Green is continuous in the HSV hue space (around 35-85)
+    mask = cv2.inRange(hsv, np.array(GREEN_LOWER), np.array(GREEN_UPPER))
 
     # Clean up noise
     kernel = np.ones((5, 5), np.uint8)
@@ -57,11 +54,11 @@ def check_confirmed(frame):
         frame: numpy array in RGB format.
 
     Returns:
-        True only when red is detected for DETECTION_CONFIRM_FRAMES consecutive frames.
+        True only when green is detected for DETECTION_CONFIRM_FRAMES consecutive frames.
     """
     global _consecutive_hits
 
-    detected, _ = detect_red(frame)
+    detected, _ = detect_green(frame)
 
     if detected:
         _consecutive_hits += 1

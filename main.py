@@ -77,7 +77,7 @@ def _navigation_loop():
 # Detection thread
 # ---------------------------------------------------------------------------
 def _detection_loop():
-    """Process camera frames for red objects while in SEARCH state."""
+    """Process camera frames for green objects while in SEARCH state."""
     while not _shutdown_event.is_set():
         state = _get_state()
 
@@ -92,7 +92,7 @@ def _detection_loop():
 
         confirmed = detector.check_confirmed(frame)
         if confirmed:
-            log.info("RED OBJECT CONFIRMED — triggering detection event")
+            log.info("GREEN OBJECT CONFIRMED — triggering detection event")
             _detection_event.set()
 
         time.sleep(0.02)  # ~50 checks/sec max, camera is ~20fps

@@ -3,6 +3,8 @@
 
 import os
 import logging
+import json
+import random
 from datetime import datetime
 from flask import Flask, request, jsonify
 
@@ -42,14 +44,47 @@ def receive_detection():
 
     size = os.path.getsize(filepath)
 
+    # Hardcoded coordinates (4 corners of a square room)
+    ROOM_CORNERS = [
+        {"lat": 12.843829, "lon": 80.154387},
+        {"lat": 12.843830, "lon": 80.154322},
+        {"lat": 12.843741, "lon": 80.154350},
+        {"lat": 12.843748, "lon": 80.154368}
+    ]
+    coord = random.choice(ROOM_CORNERS)
+    is_weed = random.choice([True, False])
+
+    # Log to JSON file
+    log_file = os.path.join(SAVE_DIR, "detection_logs.json")
+    logs = []
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, "r") as f:
+                logs = json.load(f)
+        except Exception as e:
+            log.error("Failed to read existing log file: %s", e)
+
+    log_entry = {
+        "timestamp": timestamp if timestamp else safe_ts,
+        "image_path": filepath,
+        "coordinates": coord,
+        "is_weed": is_weed
+    }
+    logs.append(log_entry)
+
+    with open(log_file, "w") as f:
+        json.dump(logs, f, indent=4)
+
     log.info("=" * 50)
     log.info("  DETECTION RECEIVED")
     log.info("  Time:      %s", timestamp)
     log.info("  Image:     %s", filepath)
     log.info("  Size:      %d bytes", size)
+    log.info("  Coord:     %.6f, %.6f", coord["lat"], coord["lon"])
+    log.info("  Weed:      %s", is_weed)
     log.info("=" * 50)
 
-    return jsonify({"status": "ok", "saved": filename}), 200
+    return jsonify({"status": "ok", "saved": filename, "log_entry": log_entry}), 200
 
 
 @app.route("/", methods=["GET"])
@@ -61,5 +96,5 @@ def index():
 if __name__ == "__main__":
     log.info("Starting PC server...")
     log.info("Saving images to: %s/", os.path.abspath(SAVE_DIR))
-    log.info("Listening on 0.0.0.0:5001")
+    log.info("Listening on 0.0.0.0:5000")
     app.run(host="0.0.0.0", port=5000)

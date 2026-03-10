@@ -49,14 +49,12 @@ SERVO_SCAN_STEP_PW = 20   # μs — step between scan readings
 SERVO_SCAN_SETTLE = 0.3   # seconds — settle before ultrasonic read
 
 # =============================================================================
-# RED OBJECT DETECTION (HSV)
+# GREEN OBJECT DETECTION (HSV)
 # =============================================================================
 
-# Red wraps around hue 0/180 — two ranges needed
-RED_LOWER_1 = (0, 70, 50)
-RED_UPPER_1 = (10, 255, 255)
-RED_LOWER_2 = (170, 70, 50)
-RED_UPPER_2 = (180, 255, 255)
+# Green hue range is roughly 35-85
+GREEN_LOWER = (35, 50, 50)
+GREEN_UPPER = (85, 255, 255)
 
 MIN_CONTOUR_AREA = 500            # pixels² — ignore smaller contours as noise
 DETECTION_CONFIRM_FRAMES = 5      # consecutive frames before confirming detection

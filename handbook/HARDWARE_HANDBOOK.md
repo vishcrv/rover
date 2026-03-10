@@ -1087,7 +1087,7 @@ Once all subsystems pass individually:
 
 1. Place the rover on the ground.
 2. Set up an obstacle (box, wall) about 50cm in front.
-3. Place a red object (ball, cup, cloth) 1–2 meters away.
+3. Place a green object (ball, cup, cloth) 1–2 meters away.
 4. Start `pc_server.py` on your PC.
 5. Run the full system:
    ```bash
@@ -1098,7 +1098,7 @@ Once all subsystems pass individually:
 7. Watch the rover:
    - It should move forward.
    - It should detect and avoid the obstacle.
-   - It should detect the red object, stop, and send data to your PC.
+   - It should detect the green object, stop, and send data to your PC.
    - It should resume for 60 seconds (demo mode).
 
 ### Emergency stop

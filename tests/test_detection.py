@@ -33,10 +33,10 @@ def test_capture_image():
     print(f"  Image saved to: {path}\n")
 
 
-def test_red_detection():
-    """Continuously check for red objects — prints detection status."""
-    print("=== Red Detection Live Test ===")
-    print("  Point camera at a red object.")
+def test_green_detection():
+    """Continuously check for green objects — prints detection status."""
+    print("=== Green Detection Live Test ===")
+    print("  Point camera at a green object.")
     print("  Press Ctrl+C to stop.\n")
 
     camera.setup()
@@ -48,13 +48,13 @@ def test_red_detection():
             if frame is None:
                 continue
 
-            detected, contour = detector.detect_red(frame)
+            detected, contour = detector.detect_green(frame)
             if detected:
                 area = cv2.contourArea(contour)
                 x, y, w, h = cv2.boundingRect(contour)
-                print(f"  RED DETECTED — area={area:.0f}px  bbox=({x},{y},{w},{h})")
+                print(f"  GREEN DETECTED — area={area:.0f}px  bbox=({x},{y},{w},{h})")
             else:
-                print("  . no red")
+                print("  . no green")
 
             time.sleep(0.2)
     except KeyboardInterrupt:
@@ -87,7 +87,7 @@ def test_confirmed_detection():
             elif count > 0:
                 print(f"  detecting... ({count}/{detector.DETECTION_CONFIRM_FRAMES})")
             else:
-                print("  . no red")
+                print("  . no green")
 
             time.sleep(0.1)
     except KeyboardInterrupt:
@@ -98,7 +98,7 @@ def run():
     print("Select test:")
     print("  1 — Camera feed (check frames)")
     print("  2 — Capture still image")
-    print("  3 — Red detection (live)")
+    print("  3 — Green detection (live)")
     print("  4 — Confirmed detection (multi-frame)")
 
     choice = input("\nEnter choice (1-4): ").strip()
@@ -109,7 +109,7 @@ def run():
         elif choice == "2":
             test_capture_image()
         elif choice == "3":
-            test_red_detection()
+            test_green_detection()
         elif choice == "4":
             test_confirmed_detection()
         else:

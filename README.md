@@ -142,7 +142,7 @@ rpa/
 │   ├── servo.py              # Servo sweep control
 │   ├── obstacle.py           # Obstacle avoidance logic (uses ultrasonic + servo)
 │   ├── camera.py             # Camera capture and frame provider
-│   ├── detector.py           # Red object detection (OpenCV)
+│   ├── detector.py           # Green object detection (OpenCV)
 │   └── transmitter.py        # Send image to PC
 ├── streaming/
 │   └── server.py             # Flask MJPEG streaming server
@@ -156,7 +156,7 @@ Define all constants in one place:
 - GPIO pin numbers (motors, servo, ultrasonic)
 - Motor speed defaults (PWM duty cycle)
 - Ultrasonic thresholds (emergency: 15cm, avoidance: 25cm)
-- Red HSV range (lower and upper bounds)
+- Green HSV range (lower and upper bounds)
 - Minimum contour area for detection
 - Detection confirmation frame count
 
@@ -227,7 +227,7 @@ function check_and_avoid():
 
 ---
 
-## Phase S4: Camera and Red Object Detection
+## Phase S4: Camera and Green Object Detection
 
 ### S4.1 — `modules/camera.py`
 - `setup()` — initialize Picamera2, configure resolution and format
@@ -236,20 +236,16 @@ function check_and_avoid():
 - Camera runs continuously; frames shared via thread-safe mechanism
 
 ### S4.2 — `modules/detector.py`
-Red detection pipeline:
+Green detection pipeline:
 ```
-function detect_red(frame):
+function detect_green(frame):
     hsv = cv2.cvtColor(frame, COLOR_BGR2HSV)
 
-    # Red wraps around hue 0/180, need two ranges
-    lower_red1 = (0, 120, 70)
-    upper_red1 = (10, 255, 255)
-    lower_red2 = (170, 120, 70)
-    upper_red2 = (180, 255, 255)
+    # Green wraps around hue 35-85, need one range
+    lower_green = (35, 50, 50)
+    upper_green = (85, 255, 255)
 
-    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-    mask = mask1 | mask2
+    mask = cv2.inRange(hsv, lower_green, upper_green)
 
     contours = cv2.findContours(mask, ...)
     filter contours by area > MIN_CONTOUR_AREA
@@ -264,8 +260,8 @@ function detect_red(frame):
 - Use a simple counter: increment on detect, reset on no-detect
 
 ### S4.4 — Validation
-- Point camera at red object → confirm detection
-- Point at non-red objects → confirm no false positive
+- Point camera at green object → confirm detection
+- Point at non-green objects → confirm no false positive
 - Test under different lighting conditions
 - Tune HSV ranges and contour area threshold as needed
 
@@ -324,7 +320,7 @@ The central orchestrator. Manages all threads and state transitions.
 ```
 Threads:
   1. Navigation thread     — motor control + obstacle avoidance (loop)
-  2. Detection thread      — camera frames + red detection (loop)
+  2. Detection thread      — camera frames + green detection (loop)
   3. Streaming thread      — Flask MJPEG server
 
 Shared State:
@@ -340,7 +336,7 @@ State Machine Logic:
 
   SEARCH:
     → navigation thread: forward + obstacle avoidance
-    → detection thread: process frames, check for red
+    → detection thread: process frames, check for green
     → on confirmed detection: set detection_flag → DETECTED
 
   DETECTED:
@@ -375,25 +371,25 @@ State Machine Logic:
 ### S9.1 — Subsystem Integration
 Test combinations incrementally:
 1. Motors + obstacle avoidance (no camera) — rover navigates without crashing
-2. Camera + detection (no motors) — red detection works reliably
-3. Motors + obstacle + detection — rover navigates and detects red, stops on detection
+2. Camera + detection (no motors) — green detection works reliably
+3. Motors + obstacle + detection — rover navigates and detects green, stops on detection
 4. Add transmission — data reaches PC
 5. Add streaming — full system running
 
 ### S9.2 — Full System Test
-- Power on rover in test area with red object placed
+- Power on rover in test area with green object placed
 - Rover should:
   - Start automatically
   - Stream video (verify from PC browser)
   - Navigate and avoid obstacles
-  - Detect red object and stop
+  - Detect green object and stop
   - Send image to PC
   - Resume movement for demo duration
   - Stop after demo timer expires
 
 ### S9.3 — Edge Cases to Test
 
-- Red object at edge of frame — detection should still trigger
+- Green object at edge of frame — detection should still trigger
 - Multiple obstacles in sequence — rover should navigate through
 - WiFi drop during transmission — rover should not crash, retry or skip
 - Low battery — observe behavior, ensure no erratic motor behavior
@@ -403,7 +399,7 @@ Test combinations incrementally:
 ## Phase S10: Tuning and Demo Preparation
 
 ### S10.1 — Parameter Tuning
-- HSV red range — adjust for demo environment lighting
+- HSV green range — adjust for demo environment lighting
 - Contour area threshold — balance sensitivity vs false positives
 - Obstacle distances — tune for rover speed and reaction time
 - Motor speed — find balance between coverage speed and obstacle safety
@@ -413,7 +409,7 @@ Test combinations incrementally:
 - [ ] Rover starts on power-on without any manual input
 - [ ] Live stream accessible from PC browser
 - [ ] Rover avoids all obstacles without collision
-- [ ] Red object detected, rover stops
+- [ ] Green object detected, rover stops
 - [ ] Image received on PC
 - [ ] Rover resumes after detection
 - [ ] System runs full demo without crash or hang
