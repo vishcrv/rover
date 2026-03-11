@@ -143,9 +143,17 @@ def _handle_detection():
     log.info("Image captured: %s", image_path)
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    success = transmitter.send_detection(image_path, timestamp)
-    if success:
+    result = transmitter.send_detection(image_path, timestamp)
+    if result:
         log.info("Detection data sent to PC")
+        # Log weed classification from server
+        log_entry = result.get("log_entry", {})
+        is_weed = log_entry.get("is_weed", "unknown")
+        weed_prob = log_entry.get("weed_probability", "N/A")
+        weed_label = log_entry.get("weed_label", "N/A")
+        log.info("Weed classification: %s (P=%.4f, %s)" if isinstance(weed_prob, float)
+                 else "Weed classification: %s (P=%s, %s)",
+                 is_weed, weed_prob, weed_label)
     else:
         log.warning("Failed to send detection data — continuing mission")
 

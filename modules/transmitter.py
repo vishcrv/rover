@@ -25,7 +25,8 @@ def send_detection(image_path, timestamp):
         timestamp:  ISO format timestamp string.
 
     Returns:
-        True if the server acknowledged (200 OK), False otherwise.
+        dict with server response (including is_weed, weed_probability)
+        on success, or None on failure.
     """
     url = _build_url()
 
@@ -41,7 +42,10 @@ def send_detection(image_path, timestamp):
 
             if resp.status_code == 200:
                 log.info("Detection sent successfully")
-                return True
+                try:
+                    return resp.json()
+                except ValueError:
+                    return {"status": "ok"}
 
             log.warning("Server returned %d: %s", resp.status_code, resp.text)
 
@@ -51,7 +55,7 @@ def send_detection(image_path, timestamp):
             log.warning("Request timed out (attempt %d/%d)", attempt + 1, _MAX_RETRIES + 1)
         except OSError as e:
             log.error("File error: %s", e)
-            return False
+            return None
 
     log.error("Failed to send detection after %d attempts", _MAX_RETRIES + 1)
-    return False
+    return None

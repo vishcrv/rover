@@ -4,7 +4,7 @@
 import os
 import logging
 import json
-import random
+import weed_classifier
 from datetime import datetime
 from flask import Flask, request, jsonify
 
@@ -51,10 +51,20 @@ def receive_detection():
         {"lat": 12.843741, "lon": 80.154350},
         {"lat": 12.843748, "lon": 80.154368}
     ]
-    coord = random.choice(ROOM_CORNERS)
-    is_weed = random.choice([True, False])
 
-    # Log to JSON file
+    # Classify image using the trained weed detection model
+    try:
+        result = weed_classifier.classify(filepath)
+        is_weed = result["is_weed"]
+        weed_probability = result["probability"]
+        weed_label = result["label"]
+    except Exception as e:
+        log.error("Weed classification failed: %s", e)
+        is_weed = False
+        weed_probability = 0.0
+        weed_label = "ERROR"
+
+    # Load existing log entries (needed for coordinate cycling)
     log_file = os.path.join(SAVE_DIR, "detection_logs.json")
     logs = []
     if os.path.exists(log_file):
@@ -64,11 +74,15 @@ def receive_detection():
         except Exception as e:
             log.error("Failed to read existing log file: %s", e)
 
+    coord = ROOM_CORNERS[len(logs) % len(ROOM_CORNERS)]
+
     log_entry = {
         "timestamp": timestamp if timestamp else safe_ts,
         "image_path": filepath,
         "coordinates": coord,
-        "is_weed": is_weed
+        "is_weed": is_weed,
+        "weed_probability": weed_probability,
+        "weed_label": weed_label,
     }
     logs.append(log_entry)
 
@@ -81,7 +95,7 @@ def receive_detection():
     log.info("  Image:     %s", filepath)
     log.info("  Size:      %d bytes", size)
     log.info("  Coord:     %.6f, %.6f", coord["lat"], coord["lon"])
-    log.info("  Weed:      %s", is_weed)
+    log.info("  Weed:      %s  (P=%.4f, %s)", is_weed, weed_probability, weed_label)
     log.info("=" * 50)
 
     return jsonify({"status": "ok", "saved": filename, "log_entry": log_entry}), 200
@@ -95,6 +109,7 @@ def index():
 
 if __name__ == "__main__":
     log.info("Starting PC server...")
+    weed_classifier.init()
     log.info("Saving images to: %s/", os.path.abspath(SAVE_DIR))
     log.info("Listening on 0.0.0.0:5000")
     app.run(host="0.0.0.0", port=5000)
