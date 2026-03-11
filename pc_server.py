@@ -55,12 +55,10 @@ def receive_detection():
     # Classify image using the trained weed detection model
     try:
         result = weed_classifier.classify(filepath)
-        is_weed = result["is_weed"]
         weed_probability = result["probability"]
         weed_label = result["label"]
     except Exception as e:
         log.error("Weed classification failed: %s", e)
-        is_weed = False
         weed_probability = 0.0
         weed_label = "ERROR"
 
@@ -80,7 +78,6 @@ def receive_detection():
         "timestamp": timestamp if timestamp else safe_ts,
         "image_path": filepath,
         "coordinates": coord,
-        "is_weed": is_weed,
         "weed_probability": weed_probability,
         "weed_label": weed_label,
     }
@@ -95,7 +92,7 @@ def receive_detection():
     log.info("  Image:     %s", filepath)
     log.info("  Size:      %d bytes", size)
     log.info("  Coord:     %.6f, %.6f", coord["lat"], coord["lon"])
-    log.info("  Weed:      %s  (P=%.4f, %s)", is_weed, weed_probability, weed_label)
+    log.info("  Weed:      %s  (P=%.4f)", weed_label, weed_probability)
     log.info("=" * 50)
 
     return jsonify({"status": "ok", "saved": filename, "log_entry": log_entry}), 200
