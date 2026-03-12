@@ -126,13 +126,28 @@ def _boot():
 # Detection handling
 # ---------------------------------------------------------------------------
 def _handle_detection():
-    """Stop → wait 2s → capture → wait 10s → scan → turn → resume."""
+    """Stop → verify leaves → capture → scan → turn → resume."""
     # 1. Stop all motors and servo sweep
     motor.stop()
     servo.stop_sweep()
     log.info("Motors and servo stopped for detection")
 
-    # 2. Capture image and send to PC
+    # 2. Verify leaf presence on a fresh frame before capturing
+    frame = camera.get_frame()
+    if frame is not None:
+        leaves = detector.detect_leaves(frame)
+    else:
+        leaves = []
+
+    if not leaves:
+        log.info("No leaves in verification frame — skipping capture (false positive)")
+        detector.reset()
+        _detection_event.clear()
+        return
+
+    log.info("Verified leaf presence (%d found) — capturing", len(leaves))
+
+    # 3. Capture image and send to PC
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"detection_{ts}.jpg"
     image_path = camera.capture_image(filename)
