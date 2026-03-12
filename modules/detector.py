@@ -2,7 +2,6 @@
 #
 # Full pipeline: preprocess → Canny edges → contour extraction →
 # feature extraction → leaf-shape filtering → annotation.
-# Replaces the old green-only detection.
 
 import cv2
 import numpy as np
@@ -51,10 +50,11 @@ def detect_leaves(frame):
     if not contours:
         return []
 
-    # 6. Extract geometric features
-    contours_feats = extract_all(contours)
+    # 6. Extract geometric features — pass the gray frame so internal edge
+    #    density can be computed inside each blob region
+    contours_feats = extract_all(contours, gray_frame=gray)
 
-    # 7. Apply leaf-shape rules
+    # 7. Apply leaf-shape rules (shape + texture + convexity)
     leaves = filter_leaves(contours_feats)
 
     return leaves
@@ -86,12 +86,14 @@ def annotate_frame(frame, leaves):
         x, y, w, h = feat["bbox"]
         cv2.rectangle(annotated, (x, y), (x + w, y + h), (255, 255, 0), 2)
 
-        # Label with area info
-        label = f"LEAF {feat['area']:.0f}px"
+        # Label: area + edge density + defect count (useful during tuning)
+        dens   = feat["internal_edge_density"]
+        defs   = feat["convexity_defects_count"]
+        label  = f"LEAF {feat['area']:.0f}px  d={dens:.3f}  def={defs}"
         cv2.putText(
             annotated, label,
             (x, y - 8),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1,
+            cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 1,
         )
 
     # Show count in top-left corner

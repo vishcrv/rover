@@ -52,11 +52,17 @@ SERVO_SCAN_SETTLE = 0.3   # seconds — settle before ultrasonic read
 # LEAF DETECTION — Preprocessing
 # =============================================================================
 
-# Green colour pre-filter (HSV)
-GREEN_LOWER = (35, 50, 50)
-GREEN_UPPER = (85, 255, 255)
+# Green colour pre-filter (HSV) — tightened to reject synthetic/painted greens
+# Hue 35–82 covers natural leaf greens; saturation ≥80 requires vivid colour
+# (painted walls, faded plastic, and shadows all fall below S=80)
+GREEN_LOWER = (35, 80, 40)        # (hue_min, sat_min, val_min)
+GREEN_UPPER = (82, 255, 255)      # (hue_max, sat_max, val_max)
 USE_GREEN_MASK = True             # True = use green HSV mask; False = adaptive threshold
 BLUR_KERNEL_SIZE = 5              # Gaussian blur kernel (must be odd)
+
+# Minimum fraction of green pixels within the bounding rect for a valid blob
+# Rejects thin grass blades and sparse detections that happen to be green
+GREEN_VEGETATION_RATIO = 0.25
 
 # Canny edge detection
 CANNY_LOW = 50                    # lower hysteresis threshold
@@ -66,16 +72,24 @@ CANNY_HIGH = 150                  # upper hysteresis threshold
 # LEAF DETECTION — Shape Filtering
 # =============================================================================
 
-LEAF_MIN_AREA = 500               # pixels² — ignore tiny contours
+LEAF_MIN_AREA = 800               # pixels² — small blobs (noise, grass tips) rejected
 LEAF_MAX_AREA = 100000            # pixels² — ignore huge blobs
 LEAF_ASPECT_RATIO_MIN = 0.3      # width/height lower bound
 LEAF_ASPECT_RATIO_MAX = 3.5      # width/height upper bound
-LEAF_SOLIDITY_MIN = 0.5          # contour area / convex hull area
-LEAF_CIRCULARITY_MIN = 0.15      # leaves are not perfectly circular
-LEAF_CIRCULARITY_MAX = 0.85      # ... nor are they perfect circles
+LEAF_SOLIDITY_MIN = 0.60         # tightened: smoother convex boundary required (was 0.5)
+LEAF_CIRCULARITY_MIN = 0.18      # slightly tighter lower bound (was 0.15)
+LEAF_CIRCULARITY_MAX = 0.80      # slightly tighter upper bound (was 0.85)
 
-MIN_CONTOUR_AREA = 500            # legacy alias (used nowhere new)
-DETECTION_CONFIRM_FRAMES = 5      # consecutive frames before confirming detection
+# Extent = contour area / bounding-rect area
+# Rejects thin elongated blades (grass) which fill very little of their bounding box
+LEAF_EXTENT_MIN = 0.35
+
+# Internal edge density — ratio of Canny edge pixels inside the blob to blob area.
+# Real leaves have veins/texture scoring 0.04–0.15; flat uniform objects score ~0.
+LEAF_EDGE_DENSITY_MIN = 0.04
+
+MIN_CONTOUR_AREA = 800            # legacy alias kept in sync
+DETECTION_CONFIRM_FRAMES = 8      # raised from 5 → 8 frames (0.4s at 20fps) to reduce transients
 
 # =============================================================================
 # CAMERA
